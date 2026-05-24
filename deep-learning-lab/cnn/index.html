@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive CNN Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #334155;
+        }
+        .grid-cell {
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+        .grid-cell:hover {
+            opacity: 0.8;
+        }
+        .highlighted-cell {
+            border: 2px solid #3b82f6 !important;
+            z-index: 10;
+        }
+        .kernel-cell {
+            border: 1px dashed #ef4444;
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 50;
+        }
+        /* Custom scrollbar for better look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="bg-slate-900 text-white shadow-md p-4 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-brain text-blue-400 text-2xl"></i>
+                <h1 class="text-xl font-bold tracking-tight">CNN Interactive Learning</h1>
+            </div>
+            <div class="flex gap-2 sm:gap-4 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar" id="nav-tabs">
+                <button onclick="switchTab('intro')" class="nav-btn active px-3 py-1 rounded-md bg-blue-600 text-white text-sm font-medium transition-colors whitespace-nowrap">Introduction</button>
+                <button onclick="switchTab('convolution')" class="nav-btn px-3 py-1 rounded-md hover:bg-slate-800 text-slate-300 text-sm font-medium transition-colors whitespace-nowrap">Convolution</button>
+                <button onclick="switchTab('relu')" class="nav-btn px-3 py-1 rounded-md hover:bg-slate-800 text-slate-300 text-sm font-medium transition-colors whitespace-nowrap">ReLU Activation</button>
+                <button onclick="switchTab('pooling')" class="nav-btn px-3 py-1 rounded-md hover:bg-slate-800 text-slate-300 text-sm font-medium transition-colors whitespace-nowrap">Max Pooling</button>
+                <button onclick="switchTab('image-demo')" class="nav-btn px-3 py-1 rounded-md hover:bg-slate-800 text-slate-300 text-sm font-medium transition-colors whitespace-nowrap">Real Image Example</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full">
+        <div id="tooltip" class="tooltip"></div>
+
+        <!-- Section: Introduction -->
+        <section id="intro" class="tab-content animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-10">
+                <h2 class="text-3xl font-bold mb-4 text-slate-800">What is a Convolutional Neural Network (CNN)?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="space-y-4 text-slate-600 leading-relaxed">
+                        <p>
+                            A Convolutional Neural Network (CNN) is a type of deep learning model designed specifically to process data that has a grid-like topology, such as images.
+                        </p>
+                        <p>
+                            Unlike traditional neural networks where every neuron is connected to every other neuron (which is too computationally expensive for large images), CNNs use <strong>filters</strong> (or kernels) to slide across an image and detect patterns.
+                        </p>
+                        <p>
+                            <strong>Key Operations in a CNN:</strong>
+                        </p>
+                        <ul class="list-disc pl-5 space-y-2">
+                            <li><strong class="text-blue-600">Convolution:</strong> Applying filters to detect features like edges, textures, or shapes.</li>
+                            <li><strong class="text-green-600">Activation (ReLU):</strong> Introducing non-linearity to learn complex patterns, typically by replacing negative values with zero.</li>
+                            <li><strong class="text-purple-600">Pooling:</strong> Downsampling the image to reduce computation and make the detection of features more robust to position changes.</li>
+                        </ul>
+                        <p class="mt-6 p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-100">
+                            <i class="fa-solid fa-lightbulb mr-2"></i> Use the tabs above to explore interactive simulations of each key operation!
+                        </p>
+                    </div>
+                    <div class="flex items-center justify-center bg-slate-50 rounded-lg p-4 border border-slate-100">
+                        <!-- Simple SVG representation of CNN architecture -->
+                        <svg viewBox="0 0 400 200" class="w-full h-auto">
+                            <!-- Input Image -->
+                            <rect x="10" y="60" width="40" height="40" rx="2" fill="#94a3b8" />
+                            <text x="30" y="115" text-anchor="middle" class="text-xs fill-slate-500">Input</text>
+                            
+                            <!-- Arrow 1 -->
+                            <path d="M55 80 L85 80" stroke="#cbd5e1" stroke-width="2" marker-end="url(#arrow)" />
+                            
+                            <!-- Conv Layer -->
+                            <rect x="90" y="50" width="15" height="60" rx="1" fill="#3b82f6" />
+                            <rect x="95" y="45" width="15" height="60" rx="1" fill="#60a5fa" opacity="0.8"/>
+                            <rect x="100" y="40" width="15" height="60" rx="1" fill="#93c5fd" opacity="0.6"/>
+                            <text x="105" y="115" text-anchor="middle" class="text-[10px] fill-slate-500">Conv</text>
+                            
+                            <!-- Arrow 2 -->
+                            <path d="M120 80 L145 80" stroke="#cbd5e1" stroke-width="2" marker-end="url(#arrow)" />
+                            
+                            <!-- Pool Layer -->
+                            <rect x="150" y="55" width="10" height="50" rx="1" fill="#a855f7" />
+                            <rect x="155" y="50" width="10" height="50" rx="1" fill="#c084fc" opacity="0.8"/>
+                            <text x="155" y="115" text-anchor="middle" class="text-[10px] fill-slate-500">Pool</text>
+
+                            <!-- Arrow 3 -->
+                            <path d="M170 80 L195 80" stroke="#cbd5e1" stroke-width="2" marker-end="url(#arrow)" />
+                            
+                            <!-- Conv Layer 2 -->
+                            <rect x="200" y="60" width="8" height="40" rx="1" fill="#3b82f6" />
+                            <rect x="204" y="55" width="8" height="40" rx="1" fill="#60a5fa" opacity="0.8"/>
+                            <rect x="208" y="50" width="8" height="40" rx="1" fill="#93c5fd" opacity="0.6"/>
+                            <text x="208" y="115" text-anchor="middle" class="text-[10px] fill-slate-500">Conv</text>
+
+                            <!-- Arrow 4 -->
+                            <path d="M220 80 L245 80" stroke="#cbd5e1" stroke-width="2" marker-end="url(#arrow)" />
+
+                            <!-- FC Layer -->
+                            <circle cx="260" cy="50" r="4" fill="#10b981" />
+                            <circle cx="260" cy="65" r="4" fill="#10b981" />
+                            <circle cx="260" cy="80" r="4" fill="#10b981" />
+                            <circle cx="260" cy="95" r="4" fill="#10b981" />
+                            <circle cx="260" cy="110" r="4" fill="#10b981" />
+                            <text x="260" y="125" text-anchor="middle" class="text-[10px] fill-slate-500">FC</text>
+
+                            <!-- Arrow 5 -->
+                            <path d="M270 80 L295 80" stroke="#cbd5e1" stroke-width="2" marker-end="url(#arrow)" />
+
+                            <!-- Output -->
+                            <circle cx="310" cy="70" r="6" fill="#f59e0b" />
+                            <circle cx="310" cy="90" r="6" fill="#f59e0b" />
+                            <text x="310" y="115" text-anchor="middle" class="text-[10px] fill-slate-500">Output</text>
+
+                            <defs>
+                                <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                                  <path d="M0,0 L0,6 L9,3 z" fill="#cbd5e1" />
+                                </marker>
+                            </defs>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Convolution -->
+        <section id="convolution" class="tab-content hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800 mb-2">The Convolution Operation</h2>
+                        <p class="text-sm text-slate-500 max-w-2xl">
+                            A filter (kernel) slides over the input image. At each step, it multiplies its values with the overlapping image pixels and sums them up to produce a single value in the feature map. This detects features like edges.
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="changeKernel('identity')" class="px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 rounded border border-slate-300 transition-colors">Identity</button>
+                        <button onclick="changeKernel('edge_detect')" class="px-3 py-1.5 text-xs font-medium bg-blue-100 hover:bg-blue-200 text-blue-800 rounded border border-blue-300 transition-colors">Edge Detection</button>
+                        <button onclick="changeKernel('sharpen')" class="px-3 py-1.5 text-xs font-medium bg-green-100 hover:bg-green-200 text-green-800 rounded border border-green-300 transition-colors">Sharpen</button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col lg:flex-row items-center justify-center gap-8 overflow-x-auto pb-4">
+                    <!-- Input Matrix -->
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-sm font-semibold mb-2 text-slate-600">Input Image (5x5)</h3>
+                        <div id="conv-input" class="relative"></div>
+                    </div>
+
+                    <!-- Operator & Kernel -->
+                    <div class="flex flex-col items-center justify-center gap-4">
+                        <div class="text-2xl text-slate-400"><i class="fa-solid fa-asterisk"></i></div>
+                        <div class="flex flex-col items-center bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <h3 class="text-xs font-semibold mb-2 text-slate-500">Filter/Kernel (3x3)</h3>
+                            <div id="conv-kernel"></div>
+                        </div>
+                        <div class="flex gap-2 mt-2">
+                            <button onclick="stepConvolution()" id="btn-conv-step" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow-sm transition-colors text-sm font-medium"><i class="fa-solid fa-forward-step mr-1"></i> Step</button>
+                            <button onclick="resetConvolution()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded shadow-sm transition-colors text-sm font-medium"><i class="fa-solid fa-rotate-left mr-1"></i> Reset</button>
+                        </div>
+                    </div>
+
+                    <!-- Equals -->
+                    <div class="text-2xl text-slate-400"><i class="fa-solid fa-equals"></i></div>
+
+                    <!-- Output Matrix -->
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-sm font-semibold mb-2 text-slate-600">Feature Map (3x3)</h3>
+                        <div id="conv-output" class="relative"></div>
+                    </div>
+                </div>
+                
+                <!-- Calculation Details -->
+                <div class="mt-8 bg-slate-50 rounded-lg p-4 border border-slate-200 min-h-[120px]">
+                    <h4 class="text-sm font-semibold text-slate-700 mb-2 border-b border-slate-200 pb-2">Calculation (Sum of Element-wise Products)</h4>
+                    <div id="conv-calculation" class="text-sm font-mono text-slate-600 flex flex-wrap gap-1 leading-loose">
+                        Click 'Step' to see the calculation for each position.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: ReLU -->
+        <section id="relu" class="tab-content hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">ReLU Activation</h2>
+                    <p class="text-sm text-slate-500">
+                        Rectified Linear Unit (ReLU) introduces non-linearity. It simply replaces all negative pixel values in the feature map with zero. Formula: <code>f(x) = max(0, x)</code>
+                    </p>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-center justify-center gap-12">
+                    <!-- Before ReLU -->
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-sm font-semibold mb-2 text-slate-600">Feature Map (Before ReLU)</h3>
+                        <div id="relu-input"></div>
+                    </div>
+
+                    <!-- Arrow -->
+                    <div class="flex flex-col items-center justify-center gap-4">
+                        <button onclick="applyRelu()" id="btn-apply-relu" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded shadow-md transition-colors font-medium flex items-center gap-2">
+                            Apply ReLU <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <button onclick="resetRelu()" class="text-sm text-slate-500 hover:text-slate-800 underline">Reset</button>
+                    </div>
+
+                    <!-- After ReLU -->
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-sm font-semibold mb-2 text-slate-600">Activated Map (After ReLU)</h3>
+                        <div id="relu-output"></div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 flex justify-center">
+                    <div class="bg-slate-50 border border-slate-200 rounded p-4 w-full max-w-md">
+                        <h4 class="text-sm font-semibold mb-2 text-center text-slate-700">ReLU Function Graph</h4>
+                        <svg id="relu-graph" width="100%" height="150" viewBox="0 0 300 150"></svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Pooling -->
+        <section id="pooling" class="tab-content hidden animate-fade-in">
+             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">Max Pooling (2x2)</h2>
+                    <p class="text-sm text-slate-500">
+                        Pooling downsamples the feature map, reducing its dimensionality while retaining the most important information. Max pooling extracts the maximum value from a specific window (here, 2x2 with a stride of 2).
+                    </p>
+                </div>
+
+                <div class="flex flex-col lg:flex-row items-center justify-center gap-8 overflow-x-auto">
+                    <!-- Input Matrix -->
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-sm font-semibold mb-2 text-slate-600">Input (4x4)</h3>
+                        <div id="pool-input" class="relative"></div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="flex flex-col items-center justify-center gap-4 min-w-[150px]">
+                        <div class="text-center bg-purple-50 p-3 rounded-lg border border-purple-100 mb-2 w-full">
+                            <p class="text-xs font-bold text-purple-800">Window: 2x2</p>
+                            <p class="text-xs font-bold text-purple-800">Stride: 2</p>
+                        </div>
+                        <button onclick="stepPooling()" id="btn-pool-step" class="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded shadow-sm transition-colors text-sm font-medium"><i class="fa-solid fa-forward-step mr-1"></i> Step</button>
+                        <button onclick="resetPooling()" class="w-full px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded shadow-sm transition-colors text-sm font-medium"><i class="fa-solid fa-rotate-left mr-1"></i> Reset</button>
+                    </div>
+
+                    <!-- Output Matrix -->
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-sm font-semibold mb-2 text-slate-600">Pooled Output (2x2)</h3>
+                        <div id="pool-output" class="relative"></div>
+                    </div>
+                </div>
+
+                 <div class="mt-8 bg-slate-50 rounded-lg p-4 border border-slate-200 min-h-[60px] flex items-center justify-center">
+                    <div id="pool-calculation" class="text-base font-semibold text-purple-700 text-center">
+                        Click 'Step' to see the max value selection.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Real Image Example -->
+        <section id="image-demo" class="tab-content hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">Filters on Real Images</h2>
+                    <p class="text-sm text-slate-500">
+                        See how convolution kernels affect an actual image. Different matrices extract different features, such as horizontal edges, vertical edges, or perform blurring and sharpening.
+                    </p>
+                </div>
+
+                <div class="flex flex-col lg:flex-row items-center justify-center gap-8 overflow-x-auto">
+                    <!-- Input Image -->
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-sm font-semibold mb-2 text-slate-600">Original Image</h3>
+                        <div class="relative cursor-crosshair group">
+                            <div class="border-2 border-slate-200 rounded overflow-hidden bg-slate-50">
+                                <canvas id="src-canvas" width="250" height="250" class="block"></canvas>
+                            </div>
+                            <div id="canvas-cursor" class="absolute hidden border border-red-500 bg-red-500/30 w-5 h-5 pointer-events-none -translate-x-1/2 -translate-y-1/2 z-10 shadow-[0_0_0_1px_rgba(255,255,255,0.7)]"></div>
+                            <div class="absolute -bottom-6 left-0 right-0 text-center text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">Hover to inspect pixels!</div>
+                        </div>
+                        <label class="mt-8 cursor-pointer px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded shadow-sm text-sm font-medium transition-colors border border-slate-300">
+                            <i class="fa-solid fa-upload mr-1"></i> Upload Image
+                            <input type="file" id="image-upload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                        </label>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="flex flex-col items-center justify-center gap-3 min-w-[200px] bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <h3 class="text-sm font-semibold text-slate-600 mb-1">Select Kernel</h3>
+                        <button onclick="applyImageKernel('normal')" class="w-full px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded shadow-sm border border-slate-300 transition-colors text-sm font-medium">Normal / Identity</button>
+                        <button onclick="applyImageKernel('edge')" class="w-full px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded shadow-sm border border-blue-200 transition-colors text-sm font-medium">Edge Detection</button>
+                        <button onclick="applyImageKernel('sobelX')" class="w-full px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded shadow-sm border border-purple-200 transition-colors text-sm font-medium">Sobel X (Vertical Edges)</button>
+                        <button onclick="applyImageKernel('sobelY')" class="w-full px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded shadow-sm border border-purple-200 transition-colors text-sm font-medium">Sobel Y (Horizontal Edges)</button>
+                        <button onclick="applyImageKernel('blur')" class="w-full px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded shadow-sm border border-green-200 transition-colors text-sm font-medium">Box Blur</button>
+                        <button onclick="applyImageKernel('sharpen')" class="w-full px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded shadow-sm border border-orange-200 transition-colors text-sm font-medium">Sharpen</button>
+                        
+                        <div class="mt-4 pt-4 border-t border-slate-200 w-full flex flex-col items-center">
+                            <div class="flex justify-between items-center w-full mb-2">
+                                <h3 class="text-xs font-semibold text-slate-600">Custom Filter Matrix</h3>
+                                <span class="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">Editable</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 bg-slate-200 p-1.5 rounded-lg border border-slate-300 w-full" id="matrix-inputs">
+                                <input type="number" id="mat-0" value="0" step="any" class="w-full h-10 text-center text-xs sm:text-sm font-mono rounded shadow-sm border-0 focus:ring-2 focus:ring-blue-500 px-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                <input type="number" id="mat-1" value="0" step="any" class="w-full h-10 text-center text-xs sm:text-sm font-mono rounded shadow-sm border-0 focus:ring-2 focus:ring-blue-500 px-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                <input type="number" id="mat-2" value="0" step="any" class="w-full h-10 text-center text-xs sm:text-sm font-mono rounded shadow-sm border-0 focus:ring-2 focus:ring-blue-500 px-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                <input type="number" id="mat-3" value="0" step="any" class="w-full h-10 text-center text-xs sm:text-sm font-mono rounded shadow-sm border-0 focus:ring-2 focus:ring-blue-500 px-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                <input type="number" id="mat-4" value="1" step="any" class="w-full h-10 text-center text-xs sm:text-sm font-mono rounded shadow-sm border-0 focus:ring-2 focus:ring-blue-500 px-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                <input type="number" id="mat-5" value="0" step="any" class="w-full h-10 text-center text-xs sm:text-sm font-mono rounded shadow-sm border-0 focus:ring-2 focus:ring-blue-500 px-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                <input type="number" id="mat-6" value="0" step="any" class="w-full h-10 text-center text-xs sm:text-sm font-mono rounded shadow-sm border-0 focus:ring-2 focus:ring-blue-500 px-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                <input type="number" id="mat-7" value="0" step="any" class="w-full h-10 text-center text-xs sm:text-sm font-mono rounded shadow-sm border-0 focus:ring-2 focus:ring-blue-500 px-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                <input type="number" id="mat-8" value="0" step="any" class="w-full h-10 text-center text-xs sm:text-sm font-mono rounded shadow-sm border-0 focus:ring-2 focus:ring-blue-500 px-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                            </div>
+                            <button onclick="applyCustomMatrix()" class="mt-3 w-full px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded shadow-sm transition-colors text-sm font-medium"><i class="fa-solid fa-play mr-1 text-xs"></i> Apply Custom</button>
+                        </div>
+                    </div>
+
+                    <!-- Output Image -->
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-sm font-semibold mb-2 text-slate-600">Filtered Output</h3>
+                        <div class="border-2 border-slate-200 rounded overflow-hidden bg-slate-50">
+                            <canvas id="dest-canvas" width="250" height="250" class="block"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pixel Inspector -->
+                <div class="mt-10 pt-6 border-t border-slate-200">
+                    <div class="text-center mb-4">
+                        <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-magnifying-glass mr-2 text-blue-500"></i>Live Pixel Inspector</h3>
+                        <p class="text-sm text-slate-500">Hover over the <strong>Original Image</strong> above to see the exact 3x3 convolution math happening at your cursor position.</p>
+                    </div>
+                    
+                    <div class="flex flex-wrap items-center justify-center gap-4 lg:gap-8 bg-slate-50/50 p-4 rounded-xl border border-slate-200">
+                        <!-- Source -->
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs font-semibold mb-2 text-slate-500">Image Pixels (Grayscale)</span>
+                            <div id="insp-source" class="grid grid-cols-3 gap-1 bg-slate-200 p-1.5 rounded-lg border border-slate-300 shadow-inner">
+                                <!-- JS Populated -->
+                            </div>
+                        </div>
+                        
+                        <div class="text-2xl text-slate-300"><i class="fa-solid fa-asterisk"></i></div>
+                        
+                        <!-- Kernel -->
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs font-semibold mb-2 text-slate-500">Selected Kernel</span>
+                            <div id="insp-kernel" class="grid grid-cols-3 gap-1 bg-slate-200 p-1.5 rounded-lg border border-slate-300 shadow-inner">
+                                <!-- JS Populated -->
+                            </div>
+                        </div>
+                        
+                        <div class="text-2xl text-slate-300"><i class="fa-solid fa-equals"></i></div>
+                        
+                        <!-- Output -->
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs font-semibold mb-2 text-slate-500">Result Pixel</span>
+                            <div id="insp-output" class="w-16 h-16 rounded-lg border border-slate-300 shadow-sm flex items-center justify-center text-lg font-bold transition-colors duration-75">
+                                -
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 flex flex-wrap justify-center items-center gap-1 text-sm font-mono text-slate-600 bg-white p-3 border border-slate-200 rounded-lg shadow-sm leading-relaxed" id="insp-equation">
+                        Hover over the image to view the element-wise multiplication and sum.
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- Tab Navigation Logic ---
+        function switchTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            // Show selected tab
+            document.getElementById(tabId).classList.remove('hidden');
+            
+            // Update button styles
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white', 'active');
+                btn.classList.add('hover:bg-slate-800', 'text-slate-300');
+            });
+            
+            const activeBtn = document.querySelector(`button[onclick="switchTab('${tabId}')"]`);
+            activeBtn.classList.add('bg-blue-600', 'text-white', 'active');
+            activeBtn.classList.remove('hover:bg-slate-800', 'text-slate-300');
+            
+            // Re-render specific visualizations if needed when unhidden to fix layout issues
+            if(tabId === 'convolution' && convState.step === 0) resetConvolution();
+            if(tabId === 'relu' && !reluState.applied) resetRelu();
+            if(tabId === 'pooling' && poolState.step === 0) resetPooling();
+        }
+
+        // --- Helper Function to Create D3 Grids ---
+        function createGrid(containerId, data, config) {
+            const { rows, cols, cellSize, gap, colorScale, isOutput, clickHandler } = config;
+            
+            const width = cols * cellSize + (cols - 1) * gap;
+            const height = rows * cellSize + (rows - 1) * gap;
+
+            d3.select(`#${containerId}`).selectAll("*").remove();
+
+            const svg = d3.select(`#${containerId}`)
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const grid = svg.append("g");
+
+            // Create cells
+            const cells = grid.selectAll(".cell-group")
+                .data(data.flat())
+                .enter()
+                .append("g")
+                .attr("class", "cell-group")
+                .attr("transform", (d, i) => {
+                    const r = Math.floor(i / cols);
+                    const c = i % cols;
+                    return `translate(${c * (cellSize + gap)}, ${r * (cellSize + gap)})`;
+                });
+
+            cells.append("rect")
+                .attr("class", "grid-cell")
+                .attr("width", cellSize)
+                .attr("height", cellSize)
+                .attr("rx", 4)
+                .attr("ry", 4)
+                .attr("fill", d => colorScale ? colorScale(d) : (d === null && isOutput ? "#f1f5f9" : "#e2e8f0"))
+                .attr("stroke", "#cbd5e1")
+                .attr("stroke-width", 1)
+                .attr("id", (d, i) => `${containerId}-rect-${i}`)
+                .on("mouseover", function(event, d) {
+                    if (d !== null && clickHandler) {
+                        d3.select(this).attr("stroke", "#3b82f6").attr("stroke-width", 2);
+                    }
+                })
+                .on("mouseout", function(event, d) {
+                     if (d !== null && clickHandler) {
+                        d3.select(this).attr("stroke", "#cbd5e1").attr("stroke-width", 1);
+                     }
+                })
+                .on("click", function(event, d) {
+                    const index = data.flat().indexOf(d);
+                    const r = Math.floor(index / cols);
+                    const c = index % cols;
+                    if(clickHandler) clickHandler(r, c);
+                });
+
+            // Add text values
+            cells.append("text")
+                .attr("x", cellSize / 2)
+                .attr("y", cellSize / 2 + 5) // Slight vertical adjustment for centering
+                .attr("text-anchor", "middle")
+                .attr("font-size", cellSize > 30 ? "14px" : "12px")
+                .attr("font-weight", "500")
+                .attr("fill", d => {
+                     if(d === null) return "transparent";
+                     // Make text white if background is dark
+                     if(colorScale) {
+                         const hsl = d3.hsl(colorScale(d));
+                         return hsl.l < 0.6 ? "#ffffff" : "#1e293b";
+                     }
+                     return "#1e293b";
+                })
+                .attr("id", (d, i) => `${containerId}-text-${i}`)
+                .text(d => d !== null ? Number.isInteger(d) ? d : d.toFixed(1) : "");
+
+            return svg;
+        }
+
+        // --- 1. CONVOLUTION STATE & LOGIC ---
+        const convState = {
+            input: [
+                [1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1],
+                [0, 0, 1, 1, 0],
+                [0, 1, 1, 0, 0]
+            ],
+            kernels: {
+                identity: [[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+                edge_detect: [[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]],
+                sharpen: [[0, -1, 0], [-1, 5, -1], [0, -1, 0]]
+            },
+            currentKernelName: 'edge_detect',
+            output: Array(3).fill(null).map(() => Array(3).fill(null)),
+            step: 0,
+            maxSteps: 9, // 3x3 output
+            cellSize: 40,
+            gap: 4
+        };
+
+        const convColorScale = d3.scaleSequential(d3.interpolateBlues).domain([-5, 10]);
+        const kernelColorScale = d3.scaleSequential(d3.interpolateRdBu).domain([-8, 8]); // Red-Blue for pos/neg weights
+
+        function renderConvolution() {
+            const inputConfig = { rows: 5, cols: 5, cellSize: convState.cellSize, gap: convState.gap, colorScale: convColorScale, clickHandler: null };
+            createGrid("conv-input", convState.input, inputConfig);
+
+            const kernelConfig = { rows: 3, cols: 3, cellSize: convState.cellSize, gap: convState.gap, colorScale: kernelColorScale, clickHandler: null };
+            createGrid("conv-kernel", convState.kernels[convState.currentKernelName], kernelConfig);
+
+            const outputConfig = { rows: 3, cols: 3, cellSize: convState.cellSize, gap: convState.gap, colorScale: convColorScale, isOutput: true, clickHandler: null };
+            createGrid("conv-output", convState.output, outputConfig);
+            
+            // Setup overlay for sliding window highlight
+            const svg = d3.select("#conv-input svg");
+            svg.selectAll(".sliding-window").remove();
+            svg.append("rect")
+                .attr("class", "sliding-window hidden")
+                .attr("width", 3 * convState.cellSize + 2 * convState.gap)
+                .attr("height", 3 * convState.cellSize + 2 * convState.gap)
+                .attr("fill", "transparent")
+                .attr("stroke", "#ef4444")
+                .attr("stroke-width", 3)
+                .attr("rx", 6)
+                .style("pointer-events", "none");
+        }
+
+        function changeKernel(name) {
+            convState.currentKernelName = name;
+            resetConvolution();
+        }
+
+        function stepConvolution() {
+            if (convState.step >= convState.maxSteps) return;
+
+            const outRow = Math.floor(convState.step / 3);
+            const outCol = convState.step % 3;
+            const kernel = convState.kernels[convState.currentKernelName];
+            
+            let sum = 0;
+            let calcStr = "";
+            let calcParts = [];
+
+            // Reset highlights
+            d3.selectAll("#conv-input .grid-cell").attr("stroke", "#cbd5e1").attr("stroke-width", 1);
+            d3.selectAll("#conv-kernel .grid-cell").attr("stroke", "#cbd5e1").attr("stroke-width", 1);
+            
+            // Move highlight window
+            const windowX = outCol * (convState.cellSize + convState.gap);
+            const windowY = outRow * (convState.cellSize + convState.gap);
+            d3.select(".sliding-window")
+                .classed("hidden", false)
+                .transition().duration(300)
+                .attr("x", windowX - 2) // slight offset for border
+                .attr("y", windowY - 2);
+
+            // Calculate one step
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const inVal = convState.input[outRow + i][outCol + j];
+                    const kVal = kernel[i][j];
+                    const prod = inVal * kVal;
+                    sum += prod;
+                    
+                    // Build calculation string visually
+                    const color = kVal >= 0 ? "text-blue-600" : "text-red-500";
+                    calcParts.push(`<span class="inline-block px-1 bg-slate-100 rounded border border-slate-200">(${inVal} &times; <span class="${color}">${kVal}</span>)</span>`);
+                }
+            }
+            
+            // Update output array and grid
+            convState.output[outRow][outCol] = sum;
+            
+            const outIndex = outRow * 3 + outCol;
+            d3.select(`#conv-output-rect-${outIndex}`)
+                .transition().duration(300)
+                .attr("fill", convColorScale(sum));
+            d3.select(`#conv-output-text-${outIndex}`)
+                .text(sum)
+                .transition().duration(300)
+                .attr("fill", d3.hsl(convColorScale(sum)).l < 0.6 ? "#ffffff" : "#1e293b");
+
+            // Update Calculation Text
+            document.getElementById("conv-calculation").innerHTML = calcParts.join(" <span class='text-slate-400'>+</span> ") + ` <strong class='ml-2 text-lg text-slate-800'>= ${sum}</strong>`;
+
+            convState.step++;
+
+            if (convState.step >= convState.maxSteps) {
+                document.getElementById("btn-conv-step").disabled = true;
+                document.getElementById("btn-conv-step").classList.add("opacity-50", "cursor-not-allowed");
+                setTimeout(() => { d3.select(".sliding-window").classed("hidden", true); }, 500);
+            }
+        }
+
+        function resetConvolution() {
+            convState.output = Array(3).fill(null).map(() => Array(3).fill(null));
+            convState.step = 0;
+            document.getElementById("btn-conv-step").disabled = false;
+            document.getElementById("btn-conv-step").classList.remove("opacity-50", "cursor-not-allowed");
+            document.getElementById("conv-calculation").innerHTML = "Click 'Step' to see the calculation for each position.";
+            d3.select(".sliding-window").classed("hidden", true);
+            renderConvolution();
+        }
+
+        // --- 2. RELU STATE & LOGIC ---
+        const reluState = {
+            input: [
+                [3, -2, 5],
+                [-1, 8, -4],
+                [0, -7, 2]
+            ],
+            output: Array(3).fill(null).map(() => Array(3).fill(null)),
+            applied: false,
+            cellSize: 50,
+            gap: 5
+        };
+
+        // Red for negative, Blue for positive
+        const reluInputColorScale = d3.scaleDiverging(d3.interpolateRdBu).domain([-10, 0, 10]);
+        const reluOutputColorScale = d3.scaleSequential(d3.interpolateBlues).domain([0, 10]);
+
+        function renderRelu() {
+            const inputConfig = { rows: 3, cols: 3, cellSize: reluState.cellSize, gap: reluState.gap, colorScale: reluInputColorScale };
+            createGrid("relu-input", reluState.input, inputConfig);
+
+            const outputConfig = { rows: 3, cols: 3, cellSize: reluState.cellSize, gap: reluState.gap, colorScale: reluOutputColorScale, isOutput: true };
+            createGrid("relu-output", reluState.output, outputConfig);
+            
+            drawReluGraph();
+        }
+
+        function drawReluGraph() {
+            const svg = d3.select("#relu-graph");
+            svg.selectAll("*").remove();
+            
+            const width = 300, height = 150;
+            const margin = {top: 20, right: 20, bottom: 30, left: 40};
+            const w = width - margin.left - margin.right;
+            const h = height - margin.top - margin.bottom;
+            
+            const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            const xScale = d3.scaleLinear().domain([-10, 10]).range([0, w]);
+            const yScale = d3.scaleLinear().domain([-5, 10]).range([h, 0]);
+            
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${yScale(0)})`)
+                .call(d3.axisBottom(xScale).ticks(5))
+                .attr("class", "text-slate-400");
+                
+            g.append("g")
+                .attr("transform", `translate(${xScale(0)},0)`)
+                .call(d3.axisLeft(yScale).ticks(4))
+                .attr("class", "text-slate-400");
+                
+            // ReLU Line
+            const line = d3.line()
+                .x(d => xScale(d.x))
+                .y(d => yScale(d.y));
+                
+            const data = [
+                {x: -10, y: 0},
+                {x: 0, y: 0},
+                {x: 10, y: 10}
+            ];
+            
+            g.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", "#16a34a") // Green
+                .attr("stroke-width", 3)
+                .attr("d", line);
+                
+            // Formula text
+            g.append("text")
+                .attr("x", 20)
+                .attr("y", 20)
+                .text("f(x) = max(0, x)")
+                .attr("font-family", "monospace")
+                .attr("font-size", "12px")
+                .attr("fill", "#475569");
+        }
+
+        function applyRelu() {
+            if(reluState.applied) return;
+            
+            reluState.applied = true;
+            document.getElementById("btn-apply-relu").disabled = true;
+            document.getElementById("btn-apply-relu").classList.add("opacity-50", "cursor-not-allowed");
+
+            let delay = 0;
+            
+            // Animate cell by cell
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    setTimeout(() => {
+                        const val = reluState.input[r][c];
+                        const newVal = Math.max(0, val);
+                        reluState.output[r][c] = newVal;
+                        
+                        const idx = r * 3 + c;
+                        
+                        // Highlight corresponding point on graph
+                        const svg = d3.select("#relu-graph g");
+                        svg.selectAll(".point").remove();
+                        svg.append("circle")
+                            .attr("class", "point")
+                            .attr("cx", d3.scaleLinear().domain([-10, 10]).range([0, 300 - 40 - 20])(val))
+                            .attr("cy", d3.scaleLinear().domain([-5, 10]).range([150 - 20 - 30, 0])(newVal))
+                            .attr("r", 5)
+                            .attr("fill", "#ef4444")
+                            .transition().duration(500).attr("r", 8).transition().duration(500).attr("r", 0).remove();
+
+                        // Update output grid visually
+                        d3.select(`#relu-output-rect-${idx}`)
+                            .transition().duration(400)
+                            .attr("fill", reluOutputColorScale(newVal));
+                        
+                        d3.select(`#relu-output-text-${idx}`)
+                            .text(newVal)
+                            .transition().duration(400)
+                            .attr("fill", d3.hsl(reluOutputColorScale(newVal)).l < 0.6 ? "#ffffff" : "#1e293b");
+                            
+                        // Visually highlight if changed
+                        if(val < 0) {
+                            d3.select(`#relu-input-rect-${idx}`)
+                                .transition().duration(200)
+                                .attr("stroke", "#ef4444")
+                                .attr("stroke-width", 3)
+                                .transition().duration(600)
+                                .attr("stroke", "#cbd5e1")
+                                .attr("stroke-width", 1);
+                        }
+
+                    }, delay);
+                    delay += 200; // staggered animation
+                }
+            }
+        }
+
+        function resetRelu() {
+            reluState.output = Array(3).fill(null).map(() => Array(3).fill(null));
+            reluState.applied = false;
+            document.getElementById("btn-apply-relu").disabled = false;
+            document.getElementById("btn-apply-relu").classList.remove("opacity-50", "cursor-not-allowed");
+            renderRelu();
+        }
+
+        // --- 3. POOLING STATE & LOGIC ---
+        const poolState = {
+            input: [
+                [1, 3, 2, 4],
+                [5, 6, 1, 2],
+                [0, 2, 7, 8],
+                [3, 1, 4, 5]
+            ],
+            output: Array(2).fill(null).map(() => Array(2).fill(null)),
+            step: 0,
+            maxSteps: 4, // 2x2 output
+            cellSize: 45,
+            gap: 4
+        };
+
+        const poolColorScale = d3.scaleSequential(d3.interpolatePurples).domain([0, 9]);
+
+        function renderPooling() {
+            const inputConfig = { rows: 4, cols: 4, cellSize: poolState.cellSize, gap: poolState.gap, colorScale: poolColorScale };
+            createGrid("pool-input", poolState.input, inputConfig);
+
+            const outputConfig = { rows: 2, cols: 2, cellSize: poolState.cellSize, gap: poolState.gap, colorScale: poolColorScale, isOutput: true };
+            createGrid("pool-output", poolState.output, outputConfig);
+            
+            const svg = d3.select("#pool-input svg");
+            svg.selectAll(".pool-window").remove();
+            svg.append("rect")
+                .attr("class", "pool-window hidden")
+                .attr("width", 2 * poolState.cellSize + poolState.gap)
+                .attr("height", 2 * poolState.cellSize + poolState.gap)
+                .attr("fill", "rgba(168, 85, 247, 0.2)")
+                .attr("stroke", "#9333ea")
+                .attr("stroke-width", 3)
+                .attr("rx", 4)
+                .style("pointer-events", "none");
+        }
+
+        function stepPooling() {
+            if (poolState.step >= poolState.maxSteps) return;
+
+            const outRow = Math.floor(poolState.step / 2);
+            const outCol = poolState.step % 2;
+            
+            // Stride = 2
+            const inRow = outRow * 2;
+            const inCol = outCol * 2;
+
+            // Move highlight window
+            const windowX = inCol * (poolState.cellSize + poolState.gap);
+            const windowY = inRow * (poolState.cellSize + poolState.gap);
+            
+            d3.select(".pool-window")
+                .classed("hidden", false)
+                .transition().duration(300)
+                .attr("x", windowX - 1)
+                .attr("y", windowY - 1);
+
+            // Find Max
+            let maxVal = -Infinity;
+            let maxR = 0, maxC = 0;
+            let vals = [];
+
+            // Reset specific cell highlights
+            d3.selectAll("#pool-input .grid-cell").attr("stroke", "#cbd5e1").attr("stroke-width", 1);
+
+            for (let i = 0; i < 2; i++) {
+                for (let j = 0; j < 2; j++) {
+                    const val = poolState.input[inRow + i][inCol + j];
+                    vals.push(val);
+                    if (val > maxVal) {
+                        maxVal = val;
+                        maxR = inRow + i;
+                        maxC = inCol + j;
+                    }
+                }
+            }
+            
+            // Highlight the max cell inside the input
+            const maxIdx = maxR * 4 + maxC;
+            d3.select(`#pool-input-rect-${maxIdx}`)
+                .transition().delay(300).duration(200)
+                .attr("stroke", "#16a34a") // Green to show it's selected
+                .attr("stroke-width", 4);
+
+            // Update output array and grid
+            poolState.output[outRow][outCol] = maxVal;
+            
+            const outIndex = outRow * 2 + outCol;
+            d3.select(`#pool-output-rect-${outIndex}`)
+                .transition().delay(500).duration(300)
+                .attr("fill", poolColorScale(maxVal));
+                
+            d3.select(`#pool-output-text-${outIndex}`)
+                .text(maxVal)
+                .transition().delay(500).duration(300)
+                .attr("fill", d3.hsl(poolColorScale(maxVal)).l < 0.6 ? "#ffffff" : "#1e293b");
+
+            // Update calculation text
+            document.getElementById("pool-calculation").innerHTML = `Max( ${vals.join(', ')} ) = <span class="text-2xl ml-2 font-bold">${maxVal}</span>`;
+
+            poolState.step++;
+
+            if (poolState.step >= poolState.maxSteps) {
+                document.getElementById("btn-pool-step").disabled = true;
+                document.getElementById("btn-pool-step").classList.add("opacity-50", "cursor-not-allowed");
+                setTimeout(() => { d3.select(".pool-window").classed("hidden", true); }, 1500);
+            }
+        }
+
+        function resetPooling() {
+            poolState.output = Array(2).fill(null).map(() => Array(2).fill(null));
+            poolState.step = 0;
+            document.getElementById("btn-pool-step").disabled = false;
+            document.getElementById("btn-pool-step").classList.remove("opacity-50", "cursor-not-allowed");
+            document.getElementById("pool-calculation").innerHTML = "Click 'Step' to see the max value selection.";
+            d3.select(".pool-window").classed("hidden", true);
+            renderPooling();
+        }
+
+        // --- 4. IMAGE DEMO STATE & LOGIC ---
+        const imageKernels = {
+            normal: {
+                name: "Identity",
+                matrix: [0,0,0, 0,1,0, 0,0,0]
+            },
+            edge: {
+                name: "Edge Detection",
+                matrix: [-1,-1,-1, -1,8,-1, -1,-1,-1]
+            },
+            sobelX: {
+                name: "Sobel X (Vertical Edges)",
+                matrix: [-1,0,1, -2,0,2, -1,0,1]
+            },
+            sobelY: {
+                name: "Sobel Y (Horizontal Edges)",
+                matrix: [-1,-2,-1, 0,0,0, 1,2,1]
+            },
+            blur: {
+                name: "Box Blur",
+                matrix: [1/9,1/9,1/9, 1/9,1/9,1/9, 1/9,1/9,1/9]
+            },
+            sharpen: {
+                name: "Sharpen",
+                matrix: [0,-1,0, -1,5,-1, 0,-1,0]
+            }
+        };
+
+        let srcCanvas, srcCtx, destCanvas, destCtx;
+        const canvasSize = 250;
+        let cachedSrcData = null;
+        let currentKernelMatrix = imageKernels['normal'].matrix;
+
+        function initImageDemo() {
+            srcCanvas = document.getElementById('src-canvas');
+            srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
+            destCanvas = document.getElementById('dest-canvas');
+            destCtx = destCanvas.getContext('2d');
+            
+            initInspector();
+            setupInspector();
+            drawDefaultImage();
+        }
+
+        function drawDefaultImage() {
+            // Draw a basic scene to ensure we have edges and shapes to detect
+            srcCtx.fillStyle = '#e0f2fe'; // Sky
+            srcCtx.fillRect(0, 0, canvasSize, canvasSize);
+            
+            srcCtx.fillStyle = '#22c55e'; // Grass
+            srcCtx.fillRect(0, canvasSize - 70, canvasSize, 70);
+            
+            srcCtx.fillStyle = '#eab308'; // Sun
+            srcCtx.beginPath();
+            srcCtx.arc(50, 50, 25, 0, Math.PI * 2);
+            srcCtx.fill();
+            
+            // House
+            srcCtx.fillStyle = '#ef4444'; // Roof
+            srcCtx.beginPath();
+            srcCtx.moveTo(150, 100);
+            srcCtx.lineTo(90, 160);
+            srcCtx.lineTo(210, 160);
+            srcCtx.fill();
+            
+            srcCtx.fillStyle = '#fef3c7'; // House body
+            srcCtx.fillRect(105, 160, 90, 70);
+            
+            srcCtx.fillStyle = '#8b5cf6'; // Door
+            srcCtx.fillRect(140, 190, 20, 40);
+            
+            srcCtx.fillStyle = '#60a5fa'; // Window
+            srcCtx.fillRect(115, 170, 20, 20);
+            srcCtx.fillRect(165, 170, 20, 20);
+
+            // Copy to output initially
+            destCtx.drawImage(srcCanvas, 0, 0);
+            cacheImageData();
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Draw and scale image to fit canvas while maintaining aspect ratio
+                    srcCtx.clearRect(0, 0, canvasSize, canvasSize);
+                    
+                    const scale = Math.min(canvasSize / img.width, canvasSize / img.height);
+                    const w = img.width * scale;
+                    const h = img.height * scale;
+                    const x = (canvasSize - w) / 2;
+                    const y = (canvasSize - h) / 2;
+                    
+                    srcCtx.drawImage(img, x, y, w, h);
+                    destCtx.drawImage(srcCanvas, 0, 0); // Reset destination
+                    cacheImageData();
+                    applyImageKernel('normal'); // Reset filter
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function cacheImageData() {
+            cachedSrcData = srcCtx.getImageData(0, 0, canvasSize, canvasSize);
+        }
+
+        function initInspector() {
+            const srcGrid = document.getElementById('insp-source');
+            const kGrid = document.getElementById('insp-kernel');
+            srcGrid.innerHTML = '';
+            kGrid.innerHTML = '';
+            for(let i=0; i<9; i++) {
+                srcGrid.innerHTML += `<div id="insp-src-${i}" class="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-[10px] sm:text-xs font-mono font-medium rounded shadow-sm border border-slate-300/50 bg-white transition-colors duration-75">0</div>`;
+                kGrid.innerHTML += `<div id="insp-k-${i}" class="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-xs sm:text-sm font-mono font-medium rounded shadow-sm border border-slate-300 bg-slate-50 transition-colors">0</div>`;
+            }
+            updateInspectorKernel();
+        }
+
+        function updateInspectorKernel() {
+            if(!document.getElementById('insp-k-0')) return;
+            for(let i=0; i<9; i++) {
+                let val = currentKernelMatrix[i];
+                let el = document.getElementById(`insp-k-${i}`);
+                el.textContent = Number.isInteger(val) ? val : val.toFixed(2);
+                
+                let bgColor = 'bg-slate-100 text-slate-400 border-slate-200';
+                if (val > 0) bgColor = 'bg-blue-100 text-blue-700 border-blue-200';
+                if (val < 0) bgColor = 'bg-red-100 text-red-700 border-red-200';
+                
+                el.className = `w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-xs sm:text-sm font-mono font-medium rounded shadow-sm border ${bgColor} transition-colors`;
+            }
+        }
+
+        function setupInspector() {
+            const cursor = document.getElementById('canvas-cursor');
+            
+            srcCanvas.addEventListener('mousemove', (e) => {
+                if(!cachedSrcData) return;
+                const rect = srcCanvas.getBoundingClientRect();
+                const scaleX = srcCanvas.width / rect.width;
+                const scaleY = srcCanvas.height / rect.height;
+                
+                const clientX = e.clientX - rect.left;
+                const clientY = e.clientY - rect.top;
+                
+                const x = Math.floor(clientX * scaleX);
+                const y = Math.floor(clientY * scaleY);
+                
+                cursor.classList.remove('hidden');
+                cursor.style.left = `${clientX}px`;
+                cursor.style.top = `${clientY}px`;
+
+                inspectPixel(x, y);
+            });
+
+            srcCanvas.addEventListener('mouseleave', () => {
+                cursor.classList.add('hidden');
+            });
+        }
+
+        function inspectPixel(cx, cy) {
+            const w = canvasSize;
+            const h = canvasSize;
+            const data = cachedSrcData.data;
+            
+            let sum = 0;
+            let eqParts = [];
+            
+            for(let i=0; i<9; i++) {
+                const ky = Math.floor(i / 3) - 1; 
+                const kx = (i % 3) - 1; 
+                
+                // Edge handling (clamp to edges)
+                const px = Math.min(Math.max(cx + kx, 0), w - 1);
+                const py = Math.min(Math.max(cy + ky, 0), h - 1);
+                
+                const idx = (py * w + px) * 4;
+                const r = data[idx];
+                const g = data[idx+1];
+                const b = data[idx+2];
+                
+                // Using luminance formula for intuitive single-number grayscale display
+                const gray = Math.round(0.299*r + 0.587*g + 0.114*b);
+                
+                const el = document.getElementById(`insp-src-${i}`);
+                el.textContent = gray;
+                el.style.backgroundColor = `rgb(${r},${g},${b})`; 
+                el.style.color = gray < 128 ? 'white' : 'black';
+                
+                const kVal = currentKernelMatrix[i];
+                const prod = gray * kVal;
+                sum += prod;
+                
+                if (kVal !== 0) {
+                     const kColor = kVal > 0 ? "text-blue-600" : "text-red-500";
+                     const kStr = Number.isInteger(kVal) ? kVal : kVal.toFixed(2);
+                     eqParts.push(`<span class="inline-block px-1 bg-slate-50 rounded border border-slate-200">(${gray} &times; <span class="${kColor}">${kStr}</span>)</span>`);
+                }
+            }
+            
+            let finalVal = Math.min(Math.max(Math.round(sum), 0), 255);
+            
+            const outEl = document.getElementById('insp-output');
+            outEl.textContent = finalVal;
+            outEl.style.backgroundColor = `rgb(${finalVal},${finalVal},${finalVal})`;
+            outEl.style.color = finalVal < 128 ? 'white' : 'black';
+            
+            const eqEl = document.getElementById('insp-equation');
+            if(eqParts.length === 0) {
+                 eqEl.innerHTML = `Sum = 0`;
+            } else {
+                 eqEl.innerHTML = eqParts.join(" <span class='text-slate-400 my-auto'>+</span> ") + ` <strong class="text-slate-800 ml-2 border-l border-slate-300 pl-2 my-auto">= ${sum.toFixed(1)}</strong> <i class="fa-solid fa-arrow-right text-slate-400 mx-2 my-auto text-xs"></i> <span class="text-slate-500 my-auto text-xs">clamp(0,255)</span> <i class="fa-solid fa-arrow-right text-slate-400 mx-2 my-auto text-xs"></i> <strong class="text-blue-600 text-lg my-auto">${finalVal}</strong>`;
+            }
+        }
+
+        function updateMatrixUIInputs(matrix) {
+            for (let i = 0; i < 9; i++) {
+                const el = document.getElementById(`mat-${i}`);
+                if (el) {
+                    let val = matrix[i];
+                    // Clean up overly long floats for display
+                    el.value = Number.isInteger(val) ? val : parseFloat(val.toFixed(4));
+                }
+            }
+        }
+
+        function applyCustomMatrix() {
+            const matrix = [];
+            for (let i = 0; i < 9; i++) {
+                const val = parseFloat(document.getElementById(`mat-${i}`).value);
+                matrix.push(isNaN(val) ? 0 : val);
+            }
+            
+            imageKernels['custom'] = { name: "Custom", matrix: matrix };
+            applyImageKernel('custom');
+        }
+
+        function applyImageKernel(kernelName) {
+            const kernelObj = imageKernels[kernelName];
+            const kernel = kernelObj.matrix;
+            
+            currentKernelMatrix = kernel;
+            updateInspectorKernel();
+            
+            // Sync UI inputs with applied matrix
+            updateMatrixUIInputs(kernel);
+
+            const side = Math.round(Math.sqrt(kernel.length));
+            const halfSide = Math.floor(side / 2);
+            
+            const srcData = srcCtx.getImageData(0, 0, canvasSize, canvasSize);
+            const dstData = destCtx.createImageData(canvasSize, canvasSize);
+            
+            const src = srcData.data;
+            const dst = dstData.data;
+            const w = canvasSize;
+            const h = canvasSize;
+
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const dstOff = (y * w + x) * 4;
+                    let r = 0, g = 0, b = 0;
+                    
+                    for (let cy = 0; cy < side; cy++) {
+                        for (let cx = 0; cx < side; cx++) {
+                            const scy = y + cy - halfSide;
+                            const scx = x + cx - halfSide;
+                            
+                            // Clamp to edge for out-of-bounds pixels
+                            const cY = Math.min(Math.max(scy, 0), h - 1);
+                            const cX = Math.min(Math.max(scx, 0), w - 1);
+                            
+                            const srcOff = (cY * w + cX) * 4;
+                            const wt = kernel[cy * side + cx];
+                            
+                            r += src[srcOff] * wt;
+                            g += src[srcOff + 1] * wt;
+                            b += src[srcOff + 2] * wt;
+                        }
+                    }
+                    
+                    // Assign and clamp values between 0 and 255
+                    dst[dstOff] = Math.min(Math.max(r, 0), 255);
+                    dst[dstOff + 1] = Math.min(Math.max(g, 0), 255);
+                    dst[dstOff + 2] = Math.min(Math.max(b, 0), 255);
+                    dst[dstOff + 3] = src[dstOff + 3]; // Preserve original Alpha
+                }
+            }
+            destCtx.putImageData(dstData, 0, 0);
+        }
+
+        // --- Initialization ---
+        window.onload = () => {
+            renderConvolution();
+            renderRelu();
+            renderPooling();
+            initImageDemo();
+            // Start on intro tab
+            switchTab('intro');
+        };
+
+    </script>
+</body>
+</html>

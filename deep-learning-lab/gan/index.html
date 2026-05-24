@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Interactive GAN AI Studio</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Poppins',sans-serif;
+}
+
+body{
+background:
+radial-gradient(circle at top left,#1e1b4b,#020617 60%);
+color:white;
+min-height:100vh;
+overflow-x:hidden;
+}
+
+/* Animated background */
+
+.bg{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+z-index:-1;
+overflow:hidden;
+}
+
+.bg span{
+position:absolute;
+display:block;
+width:8px;
+height:8px;
+background:rgba(255,255,255,0.08);
+border-radius:50%;
+animation:float 20s linear infinite;
+}
+
+@keyframes float{
+
+0%{
+transform:translateY(100vh) scale(0);
+}
+
+100%{
+transform:translateY(-120vh) scale(1.5);
+}
+
+}
+
+header{
+text-align:center;
+padding:50px 20px;
+}
+
+header h1{
+font-size:3.5rem;
+background:linear-gradient(to right,#22d3ee,#a855f7);
+-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;
+}
+
+header p{
+margin-top:15px;
+font-size:1.15rem;
+color:#cbd5e1;
+}
+
+.container{
+max-width:1400px;
+margin:auto;
+padding:20px;
+}
+
+.card{
+background:rgba(255,255,255,0.05);
+border:1px solid rgba(255,255,255,0.08);
+backdrop-filter:blur(15px);
+border-radius:30px;
+padding:35px;
+margin-bottom:35px;
+box-shadow:0 20px 50px rgba(0,0,0,0.5);
+}
+
+.card h2{
+font-size:2rem;
+margin-bottom:20px;
+color:#22d3ee;
+}
+
+textarea{
+width:100%;
+height:120px;
+background:#0f172a;
+border:none;
+border-radius:20px;
+padding:20px;
+font-size:1rem;
+color:white;
+resize:none;
+margin-top:20px;
+}
+
+button{
+margin-top:25px;
+padding:15px 30px;
+background:
+linear-gradient(135deg,#06b6d4,#9333ea);
+border:none;
+border-radius:16px;
+font-size:1rem;
+font-weight:bold;
+color:white;
+cursor:pointer;
+transition:0.3s;
+}
+
+button:hover{
+transform:translateY(-5px) scale(1.03);
+box-shadow:0 0 25px rgba(34,211,238,0.5);
+}
+
+.architecture{
+display:flex;
+justify-content:center;
+align-items:center;
+gap:20px;
+flex-wrap:wrap;
+margin-top:40px;
+}
+
+.block{
+width:180px;
+height:180px;
+border-radius:28px;
+display:flex;
+justify-content:center;
+align-items:center;
+text-align:center;
+padding:20px;
+font-weight:bold;
+font-size:1.05rem;
+transition:0.4s;
+cursor:pointer;
+position:relative;
+overflow:hidden;
+}
+
+.block::before{
+content:'';
+position:absolute;
+width:250px;
+height:250px;
+background:rgba(255,255,255,0.08);
+transform:rotate(45deg);
+top:-100px;
+left:-100px;
+}
+
+.block:hover{
+transform:translateY(-10px) scale(1.05);
+}
+
+.input{
+background:linear-gradient(135deg,#0ea5e9,#2563eb);
+}
+
+.generator{
+background:linear-gradient(135deg,#9333ea,#7e22ce);
+}
+
+.fake{
+background:linear-gradient(135deg,#22c55e,#15803d);
+}
+
+.discriminator{
+background:linear-gradient(135deg,#f97316,#ea580c);
+}
+
+.output{
+background:linear-gradient(135deg,#ef4444,#dc2626);
+}
+
+.arrow{
+font-size:2rem;
+color:#38bdf8;
+}
+
+.info-box{
+margin-top:30px;
+padding:25px;
+background:rgba(15,23,42,0.9);
+border-left:6px solid #22d3ee;
+border-radius:20px;
+line-height:2;
+color:#e2e8f0;
+font-size:1rem;
+}
+
+.playground{
+display:flex;
+justify-content:center;
+align-items:center;
+gap:40px;
+flex-wrap:wrap;
+margin-top:40px;
+}
+
+.canvas-box{
+width:280px;
+height:280px;
+background:#0f172a;
+border-radius:28px;
+display:flex;
+justify-content:center;
+align-items:center;
+position:relative;
+overflow:hidden;
+border:2px solid rgba(255,255,255,0.08);
+}
+
+.generated-art{
+font-size:1.2rem;
+text-align:center;
+padding:20px;
+animation:pulse 2s infinite;
+}
+
+@keyframes pulse{
+
+0%{
+transform:scale(1);
+}
+
+50%{
+transform:scale(1.04);
+}
+
+100%{
+transform:scale(1);
+}
+
+}
+
+.result-badge{
+position:absolute;
+bottom:15px;
+padding:10px 18px;
+border-radius:14px;
+font-weight:bold;
+}
+
+.real{
+background:#22c55e;
+}
+
+.fake-b{
+background:#ef4444;
+}
+
+.latent-grid{
+display:grid;
+grid-template-columns:repeat(8,55px);
+gap:12px;
+justify-content:center;
+margin-top:35px;
+}
+
+.latent-cell{
+width:55px;
+height:55px;
+border-radius:12px;
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:0.75rem;
+font-weight:bold;
+transition:0.3s;
+}
+
+.loss-box{
+margin-top:30px;
+}
+
+.loss-bar{
+height:28px;
+background:#1e293b;
+border-radius:20px;
+overflow:hidden;
+margin-top:15px;
+}
+
+.loss-fill{
+height:100%;
+width:0%;
+transition:1s;
+}
+
+.gen-loss{
+background:linear-gradient(to right,#22d3ee,#9333ea);
+}
+
+.dis-loss{
+background:linear-gradient(to right,#f97316,#ef4444);
+}
+
+footer{
+padding:40px;
+text-align:center;
+color:#94a3b8;
+}
+
+@media(max-width:768px){
+
+header h1{
+font-size:2.2rem;
+}
+
+.architecture{
+flex-direction:column;
+}
+
+.arrow{
+transform:rotate(90deg);
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="bg" id="bg"></div>
+
+<header>
+
+<h1>Interactive GAN AI Studio</h1>
+
+<p>
+Visualize how Generative Adversarial Networks create realistic AI-generated content
+</p>
+
+</header>
+
+<div class="container">
+
+<div class="card">
+
+<h2>Enter Your Own Prompt</h2>
+
+<p>
+Example prompts:
+<br><br>
+• futuristic robot artist
+<br>
+• cyberpunk city skyline
+<br>
+• anime astronaut
+<br>
+• realistic tiger portrait
+</p>
+
+<textarea id="promptInput">
+futuristic robot artist
+</textarea>
+
+<button onclick="generateExample()">
+Generate AI Art
+</button>
+
+<div class="info-box" id="promptInfo">
+GAN will convert your text idea into synthetic generated content.
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>GAN Architecture</h2>
+
+<div class="architecture">
+
+<div class="block input" onclick="showInfo('input')">
+🎲<br>
+Noise + Prompt
+</div>
+
+<div class="arrow">➜</div>
+
+<div class="block generator" onclick="showInfo('generator')">
+🎨<br>
+Generator
+</div>
+
+<div class="arrow">➜</div>
+
+<div class="block fake" onclick="showInfo('fake')">
+🖼️<br>
+Generated Image
+</div>
+
+<div class="arrow">➜</div>
+
+<div class="block discriminator" onclick="showInfo('discriminator')">
+🕵️<br>
+Discriminator
+</div>
+
+<div class="arrow">➜</div>
+
+<div class="block output" onclick="showInfo('output')">
+✅ / ❌<br>
+Real or Fake
+</div>
+
+</div>
+
+<div class="info-box" id="ganInfo">
+Click architecture blocks to understand GAN internals.
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>Generator vs Discriminator Simulation</h2>
+
+<button onclick="runGAN()">
+Start Training Simulation
+</button>
+
+<div class="playground">
+
+<div class="canvas-box">
+
+<div class="generated-art" id="generatedArt">
+🎨 Waiting for generation...
+</div>
+
+<div class="result-badge fake-b">
+Generator Output
+</div>
+
+</div>
+
+<div class="canvas-box" id="discriminatorBox">
+
+🕵️ Discriminator Evaluating...
+
+</div>
+
+</div>
+
+<div class="info-box" id="trainingInfo">
+The Generator learns to create realistic outputs while the Discriminator learns to detect fake samples.
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>Latent Space Explorer</h2>
+
+<p>
+GANs transform hidden latent vectors into realistic images.
+</p>
+
+<button onclick="generateLatentSpace()">
+Generate Latent Space
+</button>
+
+<div class="latent-grid" id="latentGrid"></div>
+
+<div class="info-box" id="latentInfo">
+Latent vectors encode hidden AI features.
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>GAN Training Loss Simulation</h2>
+
+<button onclick="trainLoss()">
+Train GAN
+</button>
+
+<div class="loss-box">
+
+<h3>Generator Loss</h3>
+
+<div class="loss-bar">
+<div class="loss-fill gen-loss" id="genLoss"></div>
+</div>
+
+<h3 style="margin-top:25px;">
+Discriminator Accuracy
+</h3>
+
+<div class="loss-bar">
+<div class="loss-fill dis-loss" id="disLoss"></div>
+</div>
+
+</div>
+
+<div class="info-box" id="lossInfo">
+GAN training balances Generator and Discriminator learning.
+</div>
+
+</div>
+
+</div>
+
+<footer>
+Interactive Deep Learning Playground | GAN AI Studio
+</footer>
+
+<script>
+
+// Background particles
+
+const bg=document.getElementById('bg');
+
+for(let i=0;i<60;i++){
+
+const span=document.createElement('span');
+
+span.style.left=Math.random()*100+'%';
+
+span.style.animationDuration=
+(10+Math.random()*20)+'s';
+
+span.style.animationDelay=
+Math.random()*10+'s';
+
+bg.appendChild(span);
+
+}
+
+
+// Current Prompt
+let currentPrompt='futuristic robot artist';
+
+
+// Generate User Example
+
+function generateExample(){
+
+currentPrompt=
+document.getElementById('promptInput').value;
+
+document.getElementById('generatedArt')
+.innerHTML=`
+
+✨<br><br>
+
+${currentPrompt}
+
+`;
+
+document.getElementById('promptInfo')
+.innerHTML=`
+
+🧠 Prompt Received<br><br>
+
+The Generator converts your prompt into synthetic visual features using latent vectors and neural networks.
+
+`;
+
+}
+
+
+// GAN Architecture Explanation
+
+function showInfo(type){
+
+const info=document.getElementById('ganInfo');
+
+const data={
+
+input:`
+🎲 Noise + Prompt<br><br>
+
+GAN begins with random latent vectors and your text prompt.
+`,
+
+generator:`
+🎨 Generator Network<br><br>
+
+The Generator learns to create realistic images from hidden latent space.
+`,
+
+fake:`
+🖼️ Generated Image<br><br>
+
+The synthetic image tries to mimic real-world training data.
+`,
+
+discriminator:`
+🕵️ Discriminator<br><br>
+
+The Discriminator acts like a critic trying to detect fake images.
+`,
+
+output:`
+✅ Real or Fake<br><br>
+
+The Discriminator outputs probability scores for authenticity.
+`
+
+};
+
+info.innerHTML=data[type];
+
+}
+
+
+// GAN Training Simulation
+
+function runGAN(){
+
+const box=
+document.getElementById('discriminatorBox');
+
+const info=
+document.getElementById('trainingInfo');
+
+document.getElementById('generatedArt')
+.innerHTML=`
+
+🎨<br><br>
+
+${currentPrompt}
+
+`;
+
+info.innerHTML=`
+
+🧠 Training Started<br><br>
+
+Generator creates synthetic output for:
+<strong>${currentPrompt}</strong>
+
+`;
+
+setTimeout(()=>{
+
+box.innerHTML=`
+❌ Fake Detected
+`;
+
+info.innerHTML=`
+
+🕵️ Discriminator rejected the generated sample.
+
+`;
+
+},2000);
+
+setTimeout(()=>{
+
+box.innerHTML=`
+⚠️ Generator Improving...
+`;
+
+info.innerHTML=`
+
+🎨 Generator updates weights and improves realism.
+
+`;
+
+},4000);
+
+setTimeout(()=>{
+
+box.innerHTML=`
+✅ Looks Realistic
+`;
+
+info.innerHTML=`
+
+🔥 Generator successfully fooled the Discriminator!
+
+`;
+
+},6000);
+
+}
+
+
+// Latent Space
+
+function generateLatentSpace(){
+
+const grid=
+document.getElementById('latentGrid');
+
+const info=
+document.getElementById('latentInfo');
+
+grid.innerHTML='';
+
+for(let i=0;i<64;i++){
+
+const cell=document.createElement('div');
+
+cell.classList.add('latent-cell');
+
+const value=
+(Math.random()*2-1).toFixed(2);
+
+cell.innerText=value;
+
+cell.style.background=
+`rgba(168,85,247,${Math.random()})`;
+
+grid.appendChild(cell);
+
+}
+
+info.innerHTML=`
+
+🔢 Latent Space Generated<br><br>
+
+These hidden vectors are transformed into:
+<strong>${currentPrompt}</strong>
+
+`;
+
+}
+
+
+// Loss Simulation
+
+function trainLoss(){
+
+const gen=
+document.getElementById('genLoss');
+
+const dis=
+document.getElementById('disLoss');
+
+const info=
+document.getElementById('lossInfo');
+
+let g=90;
+let d=20;
+
+const interval=setInterval(()=>{
+
+g-=5;
+d+=4;
+
+gen.style.width=g+'%';
+
+dis.style.width=d+'%';
+
+info.innerHTML=`
+
+📉 GAN Training Progress<br><br>
+
+Generator Loss:
+<strong>${g}%</strong><br><br>
+
+Discriminator Accuracy:
+<strong>${d}%</strong>
+
+`;
+
+if(g<=20){
+
+clearInterval(interval);
+
+info.innerHTML=`
+
+🔥 GAN Converged Successfully<br><br>
+
+The AI can now generate realistic:
+<strong>${currentPrompt}</strong>
+
+`;
+
+}
+
+},400);
+
+}
+
+</script>
+
+</body>
+</html>

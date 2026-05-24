@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RNN, LSTM & GRU Interactive Architecture</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #334155;
+            overflow-x: hidden;
+        }
+
+        /* Tooltip styling */
+        .tooltip {
+            position: relative;
+            cursor: pointer;
+        }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 250px;
+            background-color: #1e293b;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 50;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -125px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.875rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            pointer-events: none;
+        }
+        .tooltip .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Animation classes */
+        .data-pulse {
+            animation: pulse-glow 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            from { box-shadow: 0 0 5px #3b82f6, 0 0 10px #3b82f6; border-color: #60a5fa; }
+            to { box-shadow: 0 0 15px #3b82f6, 0 0 25px #3b82f6; border-color: #93c5fd; }
+        }
+
+        .data-flow-path {
+            stroke-dasharray: 5, 5;
+            animation: dash 20s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -1000; }
+        }
+
+        .active-path {
+            stroke: #ef4444 !important;
+            stroke-width: 3 !important;
+            filter: drop-shadow(0 0 4px #ef4444);
+            animation: none;
+        }
+        
+        .active-node {
+            background-color: #fee2e2 !important;
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Node base styles */
+        .neural-node {
+            transition: all 0.3s ease;
+        }
+
+        /* Mathematical Operator Styling */
+        .math-op {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            position: absolute;
+            z-index: 20;
+            background: white;
+            border: 2px solid #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        .op-add { color: #10b981; border-color: #10b981; }
+        .op-mul { color: #f59e0b; border-color: #f59e0b; }
+        .op-sub { color: #ef4444; border-color: #ef4444; }
+        .op-tanh { 
+            width: auto; height: 24px; padding: 0 6px; border-radius: 4px;
+            font-size: 0.75rem; background: #e0f2fe; color: #0284c7; border-color: #38bdf8;
+        }
+        .op-sig { 
+            width: auto; height: 24px; padding: 0 6px; border-radius: 4px;
+            font-size: 0.75rem; background: #fce7f3; color: #be185d; border-color: #f472b6;
+        }
+        .op-1minus {
+            width: auto; height: 24px; padding: 0 6px; border-radius: 4px;
+            font-size: 0.75rem; background: #f1f5f9; color: #475569; border-color: #cbd5e1;
+        }
+
+        /* Grid lines */
+        .bg-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
+        }
+        
+        svg { pointer-events: none; z-index: 10;}
+        
+        /* Control Panel Buttons */
+        .btn-control { transition: all 0.2s; }
+        .btn-control:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .btn-control:active:not(:disabled) { transform: translateY(0); }
+        .btn-control:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Tensor block animations */
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .tensor-anim { animation: slideUpFade 0.4s ease-out forwards; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-slate-200 p-4 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    Sequence Models Explorer
+                </h1>
+                <p class="text-sm text-slate-500 mt-1">Interactive visualizer for RNN, LSTM, and GRU architectures</p>
+            </div>
+            
+            <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <button id="btn-rnn" class="px-5 py-2 rounded-md text-sm font-medium transition-colors bg-white shadow text-blue-600 border border-slate-200" onclick="switchModel('rnn')">Vanilla RNN</button>
+                <button id="btn-lstm" class="px-5 py-2 rounded-md text-sm font-medium transition-colors text-slate-600 hover:text-slate-900" onclick="switchModel('lstm')">LSTM Cell</button>
+                <button id="btn-gru" class="px-5 py-2 rounded-md text-sm font-medium transition-colors text-slate-600 hover:text-slate-900" onclick="switchModel('gru')">GRU Cell</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow flex flex-col lg:flex-row max-w-7xl mx-auto w-full p-4 gap-6 h-[calc(100vh-100px)]">
+        
+        <!-- Left Column: Interactive Visualization Area -->
+        <div class="lg:w-2/3 flex flex-col gap-4 h-full">
+            
+            <!-- TOP: Architecture Diagram -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col relative flex-grow min-h-[350px]">
+                
+                <!-- Controls Overlay -->
+                <div class="absolute top-4 right-4 z-50 flex gap-2">
+                    <button class="btn-control bg-blue-100 hover:bg-blue-200 text-blue-700 p-2 rounded-full shadow-sm" onclick="stepBack()" id="btn-prev" disabled title="Previous Step">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <button class="btn-control bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-sm" onclick="togglePlay()" id="btn-play" title="Play/Pause Animation">
+                        <svg class="w-5 h-5" id="icon-play" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <svg class="w-5 h-5 hidden" id="icon-pause" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </button>
+                    <button class="btn-control bg-blue-100 hover:bg-blue-200 text-blue-700 p-2 rounded-full shadow-sm" onclick="stepForward()" id="btn-next" title="Next Step">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                    <button class="btn-control bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-full shadow-sm ml-2" onclick="resetAnimation()" title="Reset">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Time step indicator -->
+                <div class="absolute top-4 left-4 z-40">
+                    <div class="bg-white/90 backdrop-blur px-3 py-1.5 rounded-md text-sm font-semibold text-slate-700 shadow-sm border border-slate-200">
+                        Time Step <span id="time-step-display" class="text-blue-600 font-bold ml-1">t</span>
+                    </div>
+                </div>
+
+                <!-- Canvas Container -->
+                <div id="diagram-container" class="relative flex-grow w-full h-full bg-grid overflow-hidden">
+                    <!-- SVG lines will be injected here -->
+                    <svg id="svg-layer" class="absolute top-0 left-0 w-full h-full" xmlns="http://www.w3.org/2000/svg"></svg>
+
+                    <!-- ==================== RNN DIAGRAM ==================== -->
+                    <div id="rnn-diagram" class="absolute top-0 left-0 w-full h-full hidden">
+                        <!-- Cell Body -->
+                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-48 bg-white border-2 border-slate-300 rounded-xl shadow-lg z-10 p-4">
+                            <div class="text-xs font-bold text-slate-400 absolute top-2 right-3">RNN Cell</div>
+                            <!-- Internal operations -->
+                            <div class="relative w-full h-full flex items-center justify-center">
+                                <!-- Concatenation Node -->
+                                <div id="rnn-concat" class="neural-node tooltip w-12 h-12 bg-purple-100 border-2 border-purple-400 rounded-lg flex items-center justify-center absolute left-2 text-xs font-bold text-purple-700 z-20">
+                                    [h, x]
+                                    <span class="tooltip-text">Concatenate previous hidden state h(t-1) and current input x(t)</span>
+                                </div>
+                                <!-- Linear Layer Node -->
+                                <div id="rnn-linear" class="neural-node tooltip w-16 h-12 bg-blue-100 border-2 border-blue-400 rounded-lg flex flex-col items-center justify-center absolute left-[80px] text-xs font-bold text-blue-700 z-20">
+                                    <span>W · [h,x]</span>
+                                    <span>+ b</span>
+                                    <span class="tooltip-text">Apply linear transformation: Multiply by weight matrix W and add bias b</span>
+                                </div>
+                                <!-- Tanh Activation Node -->
+                                <div id="rnn-tanh" class="neural-node tooltip w-12 h-12 bg-sky-100 border-2 border-sky-400 rounded-full flex items-center justify-center absolute right-[30px] text-xs font-bold text-sky-700 z-20">
+                                    tanh
+                                    <span class="tooltip-text">Apply Tanh non-linearity to squash values between -1 and 1</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Inputs & Outputs -->
+                        <div id="rnn-input-x" class="neural-node tooltip absolute bottom-[15%] left-1/2 transform -translate-x-1/2 w-16 h-10 bg-emerald-100 border-2 border-emerald-400 rounded flex items-center justify-center font-mono font-bold text-emerald-800 z-20">
+                            x<sub>t</sub>
+                            <span class="tooltip-text">Current Input vector at time t</span>
+                        </div>
+                        <div id="rnn-input-h" class="neural-node tooltip absolute top-1/2 left-[15%] transform -translate-y-1/2 w-16 h-10 bg-orange-100 border-2 border-orange-400 rounded flex items-center justify-center font-mono font-bold text-orange-800 z-20">
+                            h<sub>t-1</sub>
+                            <span class="tooltip-text">Hidden State from previous time step t-1 (Memory)</span>
+                        </div>
+                        <div id="rnn-output-h" class="neural-node tooltip absolute top-1/2 right-[15%] transform -translate-y-1/2 w-16 h-10 bg-orange-100 border-2 border-orange-400 rounded flex items-center justify-center font-mono font-bold text-orange-800 z-20">
+                            h<sub>t</sub>
+                            <span class="tooltip-text">New Hidden State for current time step t</span>
+                        </div>
+                        <div id="rnn-output-y" class="neural-node tooltip absolute top-[15%] left-1/2 transform -translate-x-1/2 w-16 h-10 bg-indigo-100 border-2 border-indigo-400 rounded flex items-center justify-center font-mono font-bold text-indigo-800 z-20">
+                            y<sub>t</sub>
+                            <span class="tooltip-text">Prediction/Output at time step t</span>
+                        </div>
+                    </div>
+
+                    <!-- ==================== LSTM DIAGRAM ==================== -->
+                    <div id="lstm-diagram" class="absolute top-0 left-0 w-full h-full hidden">
+                        <!-- Cell Body -->
+                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[550px] h-80 bg-white border-2 border-slate-300 rounded-xl shadow-lg z-10 p-4">
+                            <div class="text-xs font-bold text-slate-400 absolute top-2 right-3">LSTM Cell</div>
+                            <!-- Internal Structure -->
+                            <div class="relative w-full h-full">
+                                <!-- Tracks -->
+                                <div class="absolute top-[20%] left-0 w-full border-t-4 border-slate-200 z-0 rounded"></div>
+                                <div class="absolute bottom-[20%] left-8 w-[150px] border-t-4 border-slate-200 z-0"></div>
+
+                                <!-- Concat -->
+                                <div id="lstm-concat" class="neural-node tooltip w-12 h-10 bg-purple-100 border-2 border-purple-400 rounded flex items-center justify-center absolute bottom-[20%] left-6 transform -translate-y-1/2 text-xs font-bold text-purple-700 z-20">
+                                    [h, x]
+                                    <span class="tooltip-text">Combine previous hidden state and current input</span>
+                                </div>
+
+                                <!-- Gates -->
+                                <div class="absolute bottom-[20%] left-[80px] w-full flex items-end transform -translate-y-1/2 z-10">
+                                    
+                                    <!-- Forget Gate -->
+                                    <div class="flex flex-col items-center relative">
+                                        <div class="text-[10px] font-bold text-slate-600 absolute -bottom-7 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full z-30 whitespace-nowrap shadow-sm border border-slate-200">Forget Gate</div>
+                                        <div id="lstm-gate-f" class="neural-node tooltip w-12 h-14 bg-yellow-100 border-2 border-yellow-400 rounded flex flex-col items-center justify-center text-xs font-bold text-yellow-700 z-20">
+                                            <span class="text-sm">σ</span>
+                                            <div class="text-[8px] font-normal leading-none text-center mt-1">W<sub>f</sub>, b<sub>f</sub></div>
+                                            <span class="tooltip-text">Forget Gate (f_t)</span>
+                                        </div>
+                                        <div class="absolute bottom-full left-1/2 h-[100px] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+                                    </div>
+
+                                    <!-- Input Gate -->
+                                    <div class="flex flex-col items-center relative ml-[40px]">
+                                        <div class="text-[10px] font-bold text-slate-600 absolute -bottom-7 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full z-30 whitespace-nowrap shadow-sm border border-slate-200">Input Gate</div>
+                                        <div id="lstm-gate-i" class="neural-node tooltip w-12 h-14 bg-green-100 border-2 border-green-400 rounded flex flex-col items-center justify-center text-xs font-bold text-green-700 z-20">
+                                            <span class="text-sm">σ</span>
+                                            <div class="text-[8px] font-normal leading-none text-center mt-1">W<sub>i</sub>, b<sub>i</sub></div>
+                                            <span class="tooltip-text">Input Gate (i_t)</span>
+                                        </div>
+                                        <div class="absolute bottom-full left-1/2 h-[45px] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+                                    </div>
+
+                                    <!-- Candidate -->
+                                    <div class="flex flex-col items-center relative ml-[32px]">
+                                        <div class="text-[10px] font-bold text-slate-600 absolute -bottom-7 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full z-30 whitespace-nowrap shadow-sm border border-slate-200">Candidate (C̃)</div>
+                                        <div id="lstm-gate-c" class="neural-node tooltip w-12 h-14 bg-blue-100 border-2 border-blue-400 rounded flex flex-col items-center justify-center text-xs font-bold text-blue-700 z-20">
+                                            <span class="text-sm">tanh</span>
+                                            <div class="text-[8px] font-normal leading-none text-center mt-1">W<sub>c</sub>, b<sub>c</sub></div>
+                                            <span class="tooltip-text">Candidate Cell State (C̃_t)</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Output Gate -->
+                                    <div class="flex flex-col items-center relative ml-[88px]">
+                                        <div class="text-[10px] font-bold text-slate-600 absolute -bottom-7 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full z-30 whitespace-nowrap shadow-sm border border-slate-200">Output Gate</div>
+                                        <div id="lstm-gate-o" class="neural-node tooltip w-12 h-14 bg-red-100 border-2 border-red-400 rounded flex flex-col items-center justify-center text-xs font-bold text-red-700 z-20">
+                                            <span class="text-sm">σ</span>
+                                            <div class="text-[8px] font-normal leading-none text-center mt-1">W<sub>o</sub>, b<sub>o</sub></div>
+                                            <span class="tooltip-text">Output Gate (o_t)</span>
+                                        </div>
+                                        <div class="absolute bottom-full left-1/2 h-[75px] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Math Ops -->
+                                <div id="lstm-op-mult1" class="math-op tooltip op-mul absolute top-[20%] left-[103px] transform -translate-y-1/2 -translate-x-1/2 z-20">×</div>
+                                <div id="lstm-op-mult2" class="math-op tooltip op-mul absolute top-[55%] left-[225px] transform -translate-y-1/2 -translate-x-1/2 z-20">×</div>
+                                <div id="lstm-op-add" class="math-op tooltip op-add absolute top-[20%] left-[225px] transform -translate-y-1/2 -translate-x-1/2 z-20">+</div>
+                                <div class="absolute top-[20%] left-[225px] h-[35%] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+                                <div class="absolute bottom-[20%] left-[260px] w-[20px] border-t-2 border-slate-300 border-dashed -ml-[1px] z-0 transform -translate-y-1/2 -translate-x-full"></div>
+                                <div class="absolute top-[55%] left-[240px] w-[20px] border-t-2 border-slate-300 border-dashed -ml-[1px] z-0 transform -translate-y-1/2 -translate-x-full"></div>
+                                <div class="absolute top-[55%] left-[240px] h-[25%] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+                                <div id="lstm-op-tanh" class="math-op tooltip op-tanh absolute top-[20%] left-[360px] transform -translate-y-1/2 -translate-x-1/2 flex items-center justify-center font-bold z-20">tanh</div>
+                                <div class="absolute top-[20%] left-[360px] h-[35%] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+                                <div id="lstm-op-mult3" class="math-op tooltip op-mul absolute top-[55%] left-[360px] transform -translate-y-1/2 -translate-x-1/2 z-20">×</div>
+                                <div class="absolute top-[55%] left-[360px] w-[180px] border-t-4 border-slate-200 z-0 transform -translate-y-1/2"></div>
+                                <div class="absolute top-[20%] left-[430px] h-[35%] border-l-4 border-slate-200 z-0"></div>
+                            </div>
+                        </div>
+
+                        <!-- Inputs & Outputs -->
+                        <div id="lstm-input-x" class="neural-node tooltip absolute bottom-[8%] left-[25%] transform -translate-x-1/2 w-16 h-10 bg-emerald-100 border-2 border-emerald-400 rounded flex items-center justify-center font-mono font-bold text-emerald-800 z-20">
+                            x<sub>t</sub>
+                        </div>
+                        <div id="lstm-input-h" class="neural-node tooltip absolute bottom-[20%] left-[5%] transform -translate-y-1/2 w-16 h-10 bg-orange-100 border-2 border-orange-400 rounded flex items-center justify-center font-mono font-bold text-orange-800 z-20">
+                            h<sub>t-1</sub>
+                        </div>
+                        <div id="lstm-input-c" class="neural-node tooltip absolute top-[20%] left-[5%] transform -translate-y-1/2 w-16 h-10 bg-slate-700 border-2 border-slate-900 rounded flex items-center justify-center font-mono font-bold text-white z-20">
+                            C<sub>t-1</sub>
+                        </div>
+                        <div id="lstm-output-y" class="neural-node tooltip absolute top-[15%] left-[70%] transform -translate-x-1/2 w-16 h-10 bg-indigo-100 border-2 border-indigo-400 rounded flex items-center justify-center font-mono font-bold text-indigo-800 z-20">
+                            y<sub>t</sub>
+                        </div>
+                        <div id="lstm-output-h" class="neural-node tooltip absolute bottom-[20%] right-[5%] transform -translate-y-1/2 w-16 h-10 bg-orange-100 border-2 border-orange-400 rounded flex items-center justify-center font-mono font-bold text-orange-800 z-20">
+                            h<sub>t</sub>
+                        </div>
+                        <div id="lstm-output-c" class="neural-node tooltip absolute top-[20%] right-[5%] transform -translate-y-1/2 w-16 h-10 bg-slate-700 border-2 border-slate-900 rounded flex items-center justify-center font-mono font-bold text-white z-20">
+                            C<sub>t</sub>
+                        </div>
+                    </div>
+
+                    <!-- ==================== GRU DIAGRAM ==================== -->
+                    <div id="gru-diagram" class="absolute top-0 left-0 w-full h-full hidden">
+                        <!-- Cell Body -->
+                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[550px] h-80 bg-white border-2 border-slate-300 rounded-xl shadow-lg z-10 p-4">
+                            <div class="text-xs font-bold text-slate-400 absolute top-2 right-3">GRU Cell</div>
+                            <!-- Internal Structure -->
+                            <div class="relative w-full h-full">
+                                
+                                <!-- Tracks -->
+                                <!-- Top track for h_t-1 -->
+                                <div class="absolute top-[25%] left-0 w-full border-t-4 border-slate-200 z-0 rounded"></div>
+                                <!-- Bottom track for [h, x] -->
+                                <div class="absolute bottom-[20%] left-8 w-[200px] border-t-4 border-slate-200 z-0"></div>
+
+                                <!-- Concat Node -->
+                                <div id="gru-concat" class="neural-node tooltip w-12 h-10 bg-purple-100 border-2 border-purple-400 rounded flex items-center justify-center absolute bottom-[20%] left-6 transform -translate-y-1/2 text-xs font-bold text-purple-700 z-20">
+                                    [h, x]
+                                    <span class="tooltip-text">Combine previous hidden state and current input</span>
+                                </div>
+
+                                <!-- Gates -->
+                                <div class="absolute bottom-[20%] left-[80px] w-full flex items-end transform -translate-y-1/2 z-10">
+                                    
+                                    <!-- Reset Gate (r) -->
+                                    <div class="flex flex-col items-center relative ml-[10px]">
+                                        <div class="text-[10px] font-bold text-slate-600 absolute -bottom-7 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full z-30 whitespace-nowrap shadow-sm border border-slate-200">Reset Gate</div>
+                                        <div id="gru-gate-r" class="neural-node tooltip w-12 h-14 bg-pink-100 border-2 border-pink-400 rounded flex flex-col items-center justify-center text-xs font-bold text-pink-700 z-20">
+                                            <span class="text-sm">σ</span>
+                                            <div class="text-[8px] font-normal leading-none text-center mt-1">W<sub>r</sub>, b<sub>r</sub></div>
+                                            <span class="tooltip-text">Reset Gate (r_t)</span>
+                                        </div>
+                                        <!-- Line pointing UP to mult -->
+                                        <div class="absolute bottom-full left-1/2 h-[120px] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+                                    </div>
+
+                                    <!-- Update Gate (z) -->
+                                    <div class="flex flex-col items-center relative ml-[40px]">
+                                        <div class="text-[10px] font-bold text-slate-600 absolute -bottom-7 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full z-30 whitespace-nowrap shadow-sm border border-slate-200">Update Gate</div>
+                                        <div id="gru-gate-z" class="neural-node tooltip w-12 h-14 bg-teal-100 border-2 border-teal-400 rounded flex flex-col items-center justify-center text-xs font-bold text-teal-700 z-20">
+                                            <span class="text-sm">σ</span>
+                                            <div class="text-[8px] font-normal leading-none text-center mt-1">W<sub>z</sub>, b<sub>z</sub></div>
+                                            <span class="tooltip-text">Update Gate (z_t)</span>
+                                        </div>
+                                        <!-- Line pointing UP and RIGHT to operations -->
+                                        <div class="absolute bottom-full left-1/2 h-[50px] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+                                        <div class="absolute bottom-[calc(100%+50px)] left-1/2 w-[160px] border-t-2 border-slate-300 border-dashed z-0"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Multiplication for Reset * h -->
+                                <div id="gru-op-mult-r" class="math-op tooltip op-mul absolute top-[25%] left-[113px] transform -translate-y-1/2 -translate-x-1/2 z-20">×</div>
+                                
+                                <!-- Candidate h_tilde -->
+                                <div class="absolute top-[45%] left-[210px] flex flex-col items-center relative transform -translate-y-1/2">
+                                    <div class="text-[10px] font-bold text-slate-600 absolute -top-7 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full z-30 whitespace-nowrap shadow-sm border border-slate-200">Candidate (h̃)</div>
+                                    <div id="gru-cand-h" class="neural-node tooltip w-14 h-14 bg-cyan-100 border-2 border-cyan-400 rounded flex flex-col items-center justify-center text-xs font-bold text-cyan-700 z-20">
+                                        <span class="text-sm">tanh</span>
+                                        <div class="text-[8px] font-normal leading-none text-center mt-1">W, b</div>
+                                        <span class="tooltip-text">Candidate Hidden State (h̃_t)</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Paths to candidate -->
+                                <!-- from r*h down to cand -->
+                                <div class="absolute top-[25%] left-[150px] w-[20px] border-t-2 border-slate-300 border-dashed -ml-[1px] z-0 transform -translate-y-1/2"></div>
+                                <div class="absolute top-[25%] left-[170px] h-[20%] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+                                <div class="absolute top-[45%] left-[170px] w-[40px] border-t-2 border-slate-300 border-dashed -ml-[1px] z-0 transform -translate-y-1/2"></div>
+                                
+                                <!-- from input bottom track up to cand -->
+                                <div class="absolute bottom-[20%] left-[210px] h-[35%] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+
+                                <!-- Math ops for 1-z and final h -->
+                                <div id="gru-op-1minus" class="math-op tooltip op-1minus absolute top-[55%] left-[360px] transform -translate-y-1/2 -translate-x-1/2 z-20 w-12 font-mono whitespace-nowrap">1 - z</div>
+                                <div class="absolute top-[55%] left-[360px] h-[25%] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0 transform translate-y-[-100%]"></div>
+                                
+                                <!-- z * h_tilde mult -->
+                                <div id="gru-op-mult-z2" class="math-op tooltip op-mul absolute top-[45%] left-[360px] transform -translate-y-1/2 -translate-x-1/2 z-20">×</div>
+                                <!-- line from cand to z*h_tilde -->
+                                <div class="absolute top-[45%] left-[245px] w-[100px] border-t-2 border-slate-300 border-dashed -ml-[1px] z-0 transform -translate-y-1/2"></div>
+
+                                <!-- (1-z) * h_t-1 mult on main track -->
+                                <div id="gru-op-mult-z1" class="math-op tooltip op-mul absolute top-[25%] left-[360px] transform -translate-y-1/2 -translate-x-1/2 z-20">×</div>
+                                <!-- line up to 1-z mult -->
+                                <div class="absolute top-[25%] left-[360px] h-[30%] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+
+                                <!-- Final Addition -->
+                                <div id="gru-op-add" class="math-op tooltip op-add absolute top-[25%] left-[440px] transform -translate-y-1/2 -translate-x-1/2 z-20">+</div>
+                                <!-- Path from z2 mult to add -->
+                                <div class="absolute top-[45%] left-[440px] w-[20px] border-t-2 border-slate-300 border-dashed -ml-[1px] z-0 transform -translate-y-1/2 -translate-x-full"></div>
+                                <div class="absolute top-[25%] left-[440px] h-[20%] border-l-2 border-slate-300 border-dashed -ml-[1px] z-0"></div>
+
+                            </div>
+                        </div>
+
+                        <!-- Inputs & Outputs -->
+                        <div id="gru-input-x" class="neural-node tooltip absolute bottom-[8%] left-[25%] transform -translate-x-1/2 w-16 h-10 bg-emerald-100 border-2 border-emerald-400 rounded flex items-center justify-center font-mono font-bold text-emerald-800 z-20">
+                            x<sub>t</sub>
+                        </div>
+                        <div id="gru-input-h" class="neural-node tooltip absolute top-[25%] left-[5%] transform -translate-y-1/2 w-16 h-10 bg-orange-100 border-2 border-orange-400 rounded flex items-center justify-center font-mono font-bold text-orange-800 z-20">
+                            h<sub>t-1</sub>
+                        </div>
+                        <div id="gru-output-y" class="neural-node tooltip absolute top-[15%] left-[70%] transform -translate-x-1/2 w-16 h-10 bg-indigo-100 border-2 border-indigo-400 rounded flex items-center justify-center font-mono font-bold text-indigo-800 z-20">
+                            y<sub>t</sub>
+                        </div>
+                        <div id="gru-output-h" class="neural-node tooltip absolute top-[25%] right-[5%] transform -translate-y-1/2 w-16 h-10 bg-orange-100 border-2 border-orange-400 rounded flex items-center justify-center font-mono font-bold text-orange-800 z-20">
+                            h<sub>t</sub>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Timeline Progress Bar -->
+                <div class="h-1 w-full bg-slate-100">
+                    <div id="progress-bar" class="h-full bg-blue-500 w-0 transition-all duration-300 ease-out"></div>
+                </div>
+            </div>
+
+            <!-- BOTTOM: Example Data Visualization -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 h-[220px] flex flex-col relative shrink-0 overflow-hidden">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                    Vector Visualization
+                </div>
+                <!-- Dynamic Vector Display Area -->
+                <div id="vector-viz-content" class="flex-grow flex items-center justify-center overflow-x-auto pb-2">
+                    <!-- Tensors injected here via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Explanatory Text Area -->
+        <div class="lg:w-1/3 flex flex-col gap-4">
+            
+            <!-- Example Context Card -->
+            <div class="bg-indigo-50 rounded-xl shadow-sm border border-indigo-100 p-4 shrink-0">
+                <h3 class="text-sm font-semibold text-indigo-800 mb-1 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Running Example
+                </h3>
+                <div id="example-context" class="text-xs text-indigo-900">
+                    <!-- Context injected via JS -->
+                </div>
+            </div>
+
+            <!-- Status Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col flex-grow">
+                <h2 id="model-title" class="text-xl font-bold text-slate-800 mb-2">Vanilla Recurrent Neural Network (RNN)</h2>
+                <div id="step-description" class="text-slate-600 text-sm overflow-y-auto pr-2 leading-relaxed h-[120px]">
+                    <p class="mb-2">RNNs are networks with loops in them, allowing information to persist. They are designed to work with sequence data.</p>
+                    <p class="font-medium text-blue-700 bg-blue-50 p-2 rounded">Click "Play" or use the step controls to trace the flow of data through a single time step.</p>
+                </div>
+            </div>
+
+            <!-- Mathematical Operations / Log Card -->
+            <div class="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-5 flex flex-col h-[200px] text-slate-300">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-semibold text-sm text-slate-100 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        Operations Log
+                    </h3>
+                </div>
+                <div id="equation-display" class="mb-3 px-3 py-2 bg-slate-900 rounded text-sm font-mono text-center text-blue-300 border border-slate-700 shrink-0">
+                    <!-- Equation injected via JS -->
+                </div>
+                <div id="math-log" class="ops-panel flex-grow overflow-y-auto text-xs font-mono space-y-2 pr-2">
+                    <!-- Logs injected via JS -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // State management
+        const state = {
+            model: 'rnn', // 'rnn', 'lstm', or 'gru'
+            isPlaying: false,
+            currentStep: 0,
+            interval: null,
+            speed: 3000,
+            lines: []
+        };
+
+        // DOM Elements
+        const els = {
+            svgLayer: document.getElementById('svg-layer'),
+            rnnDiagram: document.getElementById('rnn-diagram'),
+            lstmDiagram: document.getElementById('lstm-diagram'),
+            gruDiagram: document.getElementById('gru-diagram'),
+            btnRnn: document.getElementById('btn-rnn'),
+            btnLstm: document.getElementById('btn-lstm'),
+            btnGru: document.getElementById('btn-gru'),
+            btnPlay: document.getElementById('btn-play'),
+            btnPrev: document.getElementById('btn-prev'),
+            btnNext: document.getElementById('btn-next'),
+            iconPlay: document.getElementById('icon-play'),
+            iconPause: document.getElementById('icon-pause'),
+            stepDisplay: document.getElementById('time-step-display'),
+            progressBar: document.getElementById('progress-bar'),
+            modelTitle: document.getElementById('model-title'),
+            stepDesc: document.getElementById('step-description'),
+            mathLog: document.getElementById('math-log'),
+            equationDisp: document.getElementById('equation-display'),
+            exampleContext: document.getElementById('example-context'),
+            vectorViz: document.getElementById('vector-viz-content')
+        };
+
+        // --- Helper for Tensor HTML Generation ---
+        const fmtArr = (arr) => `[${arr.map(n => n.toFixed(2)).join(', ')}]`;
+        
+        const createTensorBox = (label, arr, colorClass) => {
+            const vals = arr.map(n => `<span class="w-10 text-center font-mono">${n.toFixed(2)}</span>`).join('');
+            return `
+                <div class="flex flex-col items-center tensor-anim">
+                    <span class="text-[10px] font-bold ${colorClass.text} mb-1 uppercase">${label}</span>
+                    <div class="flex gap-2 ${colorClass.bg} p-2 rounded-md border ${colorClass.border} shadow-sm">
+                        <span class="font-bold">[</span>
+                        ${vals}
+                        <span class="font-bold">]</span>
+                    </div>
+                </div>
+            `;
+        };
+
+        const createOp = (char) => `<div class="text-2xl text-slate-400 font-bold mx-3 tensor-anim">${char}</div>`;
+        const createLabel = (text) => `<div class="text-sm font-bold text-slate-500 mx-2 tensor-anim">${text}</div>`;
+        const createFuncBox = (name, colorClass) => `
+            <div class="flex flex-col items-center tensor-anim">
+                <div class="px-4 py-2 ${colorClass.bg} ${colorClass.text} border ${colorClass.border} rounded-md font-bold shadow-sm">
+                    ${name}
+                </div>
+            </div>
+        `;
+
+        // Colors configurations for tensors
+        const colors = {
+            h: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700' },
+            x: { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700' },
+            concat: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700' },
+            linear: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
+            h_next: { bg: 'bg-sky-50', border: 'border-sky-300', text: 'text-sky-700' },
+            c: { bg: 'bg-slate-700', border: 'border-slate-800', text: 'text-white' },
+            f: { bg: 'bg-yellow-50', border: 'border-yellow-400', text: 'text-yellow-700' },
+            i: { bg: 'bg-green-50', border: 'border-green-400', text: 'text-green-700' },
+            o: { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700' },
+            r: { bg: 'bg-pink-50', border: 'border-pink-300', text: 'text-pink-700' },
+            z: { bg: 'bg-teal-50', border: 'border-teal-300', text: 'text-teal-700' },
+            h_tilde: { bg: 'bg-cyan-50', border: 'border-cyan-300', text: 'text-cyan-700' }
+        };
+
+        // --- Sequence Data for Animations ---
+        const ex = {
+            rnn: {
+                x_t: [0.8, 0.9], h_prev: [0.2, 0.1], concat: [0.2, 0.1, 0.8, 0.9],
+                linear: [2.5, 3.1], h_next: [0.98, 0.99], y_t: [0.95]
+            },
+            lstm: {
+                x_t: [0.8, 0.9], h_prev: [0.2, 0.1], c_prev: [0.5, 0.4],
+                f_t: [0.9, 0.8], i_t: [0.95, 0.9], c_tilde: [0.9, 0.95],
+                c_update: [0.45+0.85, 0.32+0.85], o_t: [0.9, 0.9], h_next: [0.8, 0.75], y_t: [0.95]
+            },
+            gru: {
+                x_t: [0.8, 0.9], h_prev: [0.2, 0.1], concat: [0.2, 0.1, 0.8, 0.9],
+                r_t: [0.1, 0.2], z_t: [0.8, 0.9], h_tilde: [0.9, 0.95], 
+                h_next: [0.76, 0.86], y_t: [0.95]
+            }
+        };
+
+        const sequences = {
+            rnn: [
+                {
+                    id: 'init',
+                    desc: '<p class="mb-2">We are at time step <strong>t</strong> processing the word "amazing".</p><p>Input <span class="font-mono text-emerald-600">x_t</span> is the embedding for "amazing".<br>Memory <span class="font-mono text-orange-600">h_{t-1}</span> contains context from "The movie was".</p>',
+                    eq: 'Inputs ready',
+                    log: [`x_t = ${fmtArr(ex.rnn.x_t)}`, `h_{t-1} = ${fmtArr(ex.rnn.h_prev)}`],
+                    activeNodes: ['rnn-input-x', 'rnn-input-h'],
+                    paths: [],
+                    renderVector: () => `
+                        <div class="flex items-center gap-6">
+                            ${createTensorBox('Memory h(t-1)', ex.rnn.h_prev, colors.h)}
+                            ${createLabel('and')}
+                            ${createTensorBox('Input x(t)', ex.rnn.x_t, colors.x)}
+                        </div>`
+                },
+                {
+                    id: 'concat',
+                    desc: '<p>The inputs are <strong>concatenated</strong>.</p><p>We combine the past context and current word into one array so the network can look at both simultaneously.</p>',
+                    eq: '[h_{t-1}, x_t]',
+                    log: [`vec = ${fmtArr(ex.rnn.concat)}`],
+                    activeNodes: ['rnn-concat'],
+                    paths: [{from: 'rnn-input-x', to: 'rnn-concat'}, {from: 'rnn-input-h', to: 'rnn-concat'}],
+                    renderVector: () => `
+                        <div class="flex items-center">
+                            ${createTensorBox('h(t-1)', ex.rnn.h_prev, colors.h)}
+                            ${createOp('+')}
+                            ${createTensorBox('x(t)', ex.rnn.x_t, colors.x)}
+                            ${createOp('→')}
+                            ${createTensorBox('Combined [h, x]', ex.rnn.concat, colors.concat)}
+                        </div>`
+                },
+                {
+                    id: 'linear',
+                    desc: '<p>Linear Transformation.</p><p>The network applies weights to the combined vector. High weights might be applied to features representing positivity in the current word.</p>',
+                    eq: 'W_h · [h_{t-1}, x_t] + b_h',
+                    log: [`z = W * vec + b`, `z = ${fmtArr(ex.rnn.linear)}`],
+                    activeNodes: ['rnn-linear'],
+                    paths: [{from: 'rnn-concat', to: 'rnn-linear'}],
+                    renderVector: () => `
+                        <div class="flex items-center">
+                            ${createTensorBox('[h, x]', ex.rnn.concat, colors.concat)}
+                            ${createOp('×')}
+                            ${createFuncBox('Weight Matrix (W)', {bg:'bg-slate-100', text:'text-slate-600', border:'border-slate-300'})}
+                            ${createOp('→')}
+                            ${createTensorBox('Raw values (z)', ex.rnn.linear, colors.linear)}
+                        </div>`
+                },
+                {
+                    id: 'tanh',
+                    desc: '<p><strong>Tanh Activation.</strong></p><p>Squashes the raw values (which were > 2.0) down to between -1 and 1. This stable vector is our new memory state.</p>',
+                    eq: 'h_t = tanh(W_h · [h, x] + b)',
+                    log: [`h_t = tanh(${fmtArr(ex.rnn.linear)})`, `h_t = ${fmtArr(ex.rnn.h_next)}`],
+                    activeNodes: ['rnn-tanh'],
+                    paths: [{from: 'rnn-linear', to: 'rnn-tanh'}],
+                    renderVector: () => `
+                        <div class="flex items-center">
+                            ${createFuncBox('tanh()', colors.linear)}
+                            ${createOp('applied to')}
+                            ${createTensorBox('z', ex.rnn.linear, colors.linear)}
+                            ${createOp('→')}
+                            ${createTensorBox('New State h(t)', ex.rnn.h_next, colors.h_next)}
+                        </div>`
+                },
+                {
+                    id: 'output',
+                    desc: '<p><strong>Output & Next Step.</strong></p><p>The new state <span class="font-mono text-orange-600">h_t</span> is ready for the next word. It also produces our output <span class="font-mono text-indigo-600">y_t</span> indicating a strong positive sentiment.</p>',
+                    eq: 'Output h_t, y_t',
+                    log: [`New state h_t = ${fmtArr(ex.rnn.h_next)}`, `Output y_t = ${fmtArr(ex.rnn.y_t)} (Positive)`],
+                    activeNodes: ['rnn-output-h', 'rnn-output-y'],
+                    paths: [{from: 'rnn-tanh', to: 'rnn-output-h'}, {from: 'rnn-tanh', to: 'rnn-output-y'}],
+                    renderVector: () => `
+                        <div class="flex items-center gap-8">
+                            <div class="flex flex-col items-center">
+                                ${createLabel('Sent to Next Step')}
+                                <div class="mt-2">${createTensorBox('h(t)', ex.rnn.h_next, colors.h_next)}</div>
+                            </div>
+                            <div class="h-16 w-px bg-slate-300"></div>
+                            <div class="flex flex-col items-center">
+                                ${createLabel('Output Prediction')}
+                                <div class="mt-2">${createTensorBox('y(t)', ex.rnn.y_t, {bg:'bg-indigo-100', border:'border-indigo-300', text:'text-indigo-800'})}</div>
+                            </div>
+                        </div>`
+                }
+            ],
+            lstm: [
+                {
+                    id: 'init',
+                    desc: '<p>LSTM adds the <strong>Cell State (C)</strong>.</p><p>We receive the word "amazing" (<span class="font-mono">x_t</span>), short-term context (<span class="font-mono">h_{t-1}</span>), and long-term theme (<span class="font-mono">C_{t-1}</span>).</p>',
+                    eq: 'Inputs: x_t, h_{t-1}, C_{t-1}',
+                    log: [`x_t = ${fmtArr(ex.lstm.x_t)}`, `h_{t-1} = ${fmtArr(ex.lstm.h_prev)}`, `C_{t-1} = ${fmtArr(ex.lstm.c_prev)}`],
+                    activeNodes: ['lstm-input-x', 'lstm-input-h', 'lstm-input-c'],
+                    paths: [],
+                    renderVector: () => `
+                        <div class="flex items-center gap-4 scale-90">
+                            ${createTensorBox('Long-term C(t-1)', ex.lstm.c_prev, colors.c)}
+                            ${createLabel(' ')}
+                            ${createTensorBox('Short-term h(t-1)', ex.lstm.h_prev, colors.h)}
+                            ${createLabel(' ')}
+                            ${createTensorBox('Word x(t)', ex.lstm.x_t, colors.x)}
+                        </div>`
+                },
+                {
+                    id: 'forget',
+                    desc: '<p class="font-semibold text-yellow-700">The Forget Gate</p><p>Looks at context + "amazing" and decides what to keep from long-term memory. Since "amazing" doesn\'t change the subject, it outputs high values (~0.9) to keep most of the old cell state.</p>',
+                    eq: 'f_t = σ(W_f · [h, x] + b_f)',
+                    log: [`f_t = sigmoid(...) = ${fmtArr(ex.lstm.f_t)}`, `Keep ~90% of old memory`],
+                    activeNodes: ['lstm-concat', 'lstm-gate-f'],
+                    paths: [{from: 'lstm-input-x', to: 'lstm-concat'}, {from: 'lstm-input-h', to: 'lstm-concat'}, {from: 'lstm-concat', to: 'lstm-gate-f'}],
+                    renderVector: () => `
+                        <div class="flex items-center">
+                            ${createFuncBox('Forget Layer (σ)', colors.f)}
+                            ${createOp('→')}
+                            ${createTensorBox('Forget Vector f(t)', ex.lstm.f_t, colors.f)}
+                            ${createLabel('(Values near 1 = Keep)')}
+                        </div>`
+                },
+                {
+                    id: 'input',
+                    desc: '<p class="font-semibold text-green-700">The Input Gate & Candidate</p><p>The Input Gate (<span class="font-mono">i_t</span>) decides to heavily update the state (values near 1). The Candidate (<span class="font-mono">C̃_t</span>) proposes strong positive values based on the word "amazing".</p>',
+                    eq: 'i_t, C̃_t calculated',
+                    log: [`i_t = ${fmtArr(ex.lstm.i_t)} (Update strongly)`, `C̃_t = ${fmtArr(ex.lstm.c_tilde)} (Very positive)`],
+                    activeNodes: ['lstm-gate-i', 'lstm-gate-c'],
+                    paths: [{from: 'lstm-concat', to: 'lstm-gate-i'}, {from: 'lstm-concat', to: 'lstm-gate-c'}],
+                    renderVector: () => `
+                        <div class="flex items-center gap-4">
+                            ${createTensorBox('Input Gate i(t)', ex.lstm.i_t, colors.i)}
+                            ${createLabel('AND')}
+                            ${createTensorBox('Candidate C̃(t)', ex.lstm.c_tilde, {bg:'bg-blue-50', text:'text-blue-700', border:'border-blue-400'})}
+                        </div>`
+                },
+                {
+                    id: 'update',
+                    desc: '<p class="font-semibold text-blue-700">Updating Cell State</p><p>Old memory is faded by <span class="font-mono">f_t</span>. New sentiment <span class="font-mono">C̃_t</span> is scaled by <span class="font-mono">i_t</span> and added. The cell state becomes even more "positive".</p>',
+                    eq: 'C_t = f_t*C_{t-1} + i_t*C̃_t',
+                    log: [`C_t = (${fmtArr(ex.lstm.c_prev)} * ${fmtArr(ex.lstm.f_t)}) + (${fmtArr(ex.lstm.i_t)} * ${fmtArr(ex.lstm.c_tilde)})`, `C_t = ${fmtArr(ex.lstm.c_update)}`],
+                    activeNodes: ['lstm-op-mult1', 'lstm-op-mult2', 'lstm-op-add', 'lstm-output-c'],
+                    paths: [{from: 'lstm-gate-f', to: 'lstm-op-mult1'}, {from: 'lstm-input-c', to: 'lstm-op-mult1'}, {from: 'lstm-op-mult1', to: 'lstm-op-add'}, {from: 'lstm-gate-i', to: 'lstm-op-mult2'}, {from: 'lstm-gate-c', to: 'lstm-op-mult2'}, {from: 'lstm-op-mult2', to: 'lstm-op-add'}, {from: 'lstm-op-add', to: 'lstm-output-c'}],
+                    renderVector: () => `
+                        <div class="flex flex-col gap-2 items-center scale-[0.85]">
+                            <div class="flex items-center">
+                                ${createTensorBox('C(t-1)', ex.lstm.c_prev, colors.c)} ${createOp('×')} ${createTensorBox('f(t)', ex.lstm.f_t, colors.f)}
+                                ${createOp('+')}
+                                ${createTensorBox('i(t)', ex.lstm.i_t, colors.i)} ${createOp('×')} ${createTensorBox('C̃(t)', ex.lstm.c_tilde, {bg:'bg-blue-50', text:'text-blue-700', border:'border-blue-400'})}
+                            </div>
+                            <div class="flex items-center mt-2">
+                                ${createOp('↓')}
+                            </div>
+                            <div class="flex items-center">
+                                ${createTensorBox('New Cell State C(t)', ex.lstm.c_update, colors.c)}
+                            </div>
+                        </div>`
+                },
+                {
+                    id: 'output',
+                    desc: '<p class="font-semibold text-red-700">The Output Gate</p><p>The Output Gate (<span class="font-mono">o_t</span>) decides to reveal most of the state. We push <span class="font-mono">C_t</span> through tanh and multiply by <span class="font-mono">o_t</span> to get our final hidden state <span class="font-mono">h_t</span>.</p>',
+                    eq: 'o_t = σ(...), h_t = o_t * tanh(C_t)',
+                    log: [`o_t = ${fmtArr(ex.lstm.o_t)}`, `h_t = o_t * tanh(${fmtArr(ex.lstm.c_update)})`, `h_t = ${fmtArr(ex.lstm.h_next)}`],
+                    activeNodes: ['lstm-gate-o', 'lstm-op-tanh', 'lstm-op-mult3', 'lstm-output-h', 'lstm-output-y'],
+                    paths: [{from: 'lstm-concat', to: 'lstm-gate-o'}, {from: 'lstm-op-add', to: 'lstm-op-tanh'}, {from: 'lstm-op-tanh', to: 'lstm-op-mult3'}, {from: 'lstm-gate-o', to: 'lstm-op-mult3'}, {from: 'lstm-op-mult3', to: 'lstm-output-h'}, {from: 'lstm-op-mult3', to: 'lstm-output-y'}],
+                    renderVector: () => `
+                        <div class="flex items-center scale-90">
+                            ${createTensorBox('Output Gate o(t)', ex.lstm.o_t, colors.o)}
+                            ${createOp('×')}
+                            ${createFuncBox('tanh( C(t) )', colors.c)}
+                            ${createOp('→')}
+                            ${createTensorBox('New Hidden State h(t)', ex.lstm.h_next, colors.h_next)}
+                        </div>`
+                }
+            ],
+            gru: [
+                {
+                    id: 'init',
+                    desc: '<p>The <strong>GRU (Gated Recurrent Unit)</strong> simplifies the LSTM. It has NO separate cell state.</p><p>We only process the current input <span class="font-mono text-emerald-600">x_t</span> and previous hidden state <span class="font-mono text-orange-600">h_{t-1}</span>.</p>',
+                    eq: 'Inputs: x_t, h_{t-1}',
+                    log: [`x_t = ${fmtArr(ex.gru.x_t)}`, `h_{t-1} = ${fmtArr(ex.gru.h_prev)}`],
+                    activeNodes: ['gru-input-x', 'gru-input-h'],
+                    paths: [],
+                    renderVector: () => `
+                        <div class="flex items-center gap-6">
+                            ${createTensorBox('Hidden State h(t-1)', ex.gru.h_prev, colors.h)}
+                            ${createLabel('and')}
+                            ${createTensorBox('Word Input x(t)', ex.gru.x_t, colors.x)}
+                        </div>`
+                },
+                {
+                    id: 'gates',
+                    desc: '<p class="font-semibold text-slate-700">Calculating Gates</p><p>We calculate two gates: <span class="font-bold text-pink-700">Reset Gate (r)</span> decides what past info to drop. <span class="font-bold text-teal-700">Update Gate (z)</span> decides how much old state to keep vs new state to mix in.</p>',
+                    eq: 'r_t = σ(W_r[h,x]), z_t = σ(W_z[h,x])',
+                    log: [`Concat = ${fmtArr(ex.gru.concat)}`, `Reset Gate r_t = ${fmtArr(ex.gru.r_t)}`, `Update Gate z_t = ${fmtArr(ex.gru.z_t)}`],
+                    activeNodes: ['gru-concat', 'gru-gate-r', 'gru-gate-z'],
+                    paths: [{from: 'gru-input-x', to: 'gru-concat'}, {from: 'gru-input-h', to: 'gru-concat'}, {from: 'gru-concat', to: 'gru-gate-r'}, {from: 'gru-concat', to: 'gru-gate-z'}],
+                    renderVector: () => `
+                        <div class="flex items-center gap-4">
+                            ${createTensorBox('Reset Gate r(t)', ex.gru.r_t, colors.r)}
+                            ${createLabel('AND')}
+                            ${createTensorBox('Update Gate z(t)', ex.gru.z_t, colors.z)}
+                        </div>`
+                },
+                {
+                    id: 'candidate',
+                    desc: '<p class="font-semibold text-cyan-700">Forming Candidate State</p><p>We apply the Reset Gate to <span class="font-mono">h_{t-1}</span>, temporarily dropping info before passing it through tanh to create the new <span class="font-bold">Candidate (h̃)</span>.</p>',
+                    eq: 'h̃_t = tanh(W[r_t * h_{t-1}, x_t])',
+                    log: [`Apply Reset to h = r_t * h_{t-1}`, `Candidate h̃_t = ${fmtArr(ex.gru.h_tilde)}`],
+                    activeNodes: ['gru-op-mult-r', 'gru-cand-h'],
+                    paths: [{from: 'gru-gate-r', to: 'gru-op-mult-r'}, {from: 'gru-input-h', to: 'gru-op-mult-r'}, {from: 'gru-op-mult-r', to: 'gru-cand-h'}, {from: 'gru-concat', to: 'gru-cand-h'}],
+                    renderVector: () => `
+                        <div class="flex items-center scale-90">
+                            <div class="flex flex-col items-center">
+                                ${createLabel('Reset applied')}
+                                <div class="mt-2 text-sm text-center">(r_t × h_{t-1})</div>
+                            </div>
+                            ${createOp('+')}
+                            ${createTensorBox('Input x(t)', ex.gru.x_t, colors.x)}
+                            ${createOp('→')}
+                            ${createFuncBox('tanh()', colors.h_tilde)}
+                            ${createOp('→')}
+                            ${createTensorBox('Candidate h̃(t)', ex.gru.h_tilde, colors.h_tilde)}
+                        </div>`
+                },
+                {
+                    id: 'update',
+                    desc: '<p class="font-semibold text-teal-700">Updating Hidden State</p><p>The Update Gate (<span class="font-mono">z_t</span>) blends them: We keep <span class="font-mono">(1-z_t)</span> of the old state and add <span class="font-mono">z_t</span> of the new candidate state.</p>',
+                    eq: 'h_t = (1-z_t)*h_{t-1} + z_t*h̃_t',
+                    log: [`(1-z_t) * h_{t-1} + z_t * h̃_t`, `h_t = ${fmtArr(ex.gru.h_next)}`],
+                    activeNodes: ['gru-op-1minus', 'gru-op-mult-z1', 'gru-op-mult-z2', 'gru-op-add'],
+                    paths: [{from: 'gru-gate-z', to: 'gru-op-1minus'}, {from: 'gru-gate-z', to: 'gru-op-mult-z2'}, {from: 'gru-op-1minus', to: 'gru-op-mult-z1'}, {from: 'gru-input-h', to: 'gru-op-mult-z1'}, {from: 'gru-cand-h', to: 'gru-op-mult-z2'}, {from: 'gru-op-mult-z1', to: 'gru-op-add'}, {from: 'gru-op-mult-z2', to: 'gru-op-add'}],
+                    renderVector: () => `
+                        <div class="flex flex-col gap-2 items-center scale-[0.85]">
+                            <div class="flex items-center">
+                                ${createFuncBox('(1 - z_t)', {bg:'bg-slate-100', border:'border-slate-300', text:'text-slate-700'})} ${createOp('×')} ${createTensorBox('h(t-1)', ex.gru.h_prev, colors.h)}
+                                ${createOp('+')}
+                                ${createTensorBox('z(t)', ex.gru.z_t, colors.z)} ${createOp('×')} ${createTensorBox('h̃(t)', ex.gru.h_tilde, colors.h_tilde)}
+                            </div>
+                            <div class="flex items-center mt-2">
+                                ${createOp('↓')}
+                            </div>
+                            <div class="flex items-center">
+                                ${createTensorBox('New Hidden State h(t)', ex.gru.h_next, colors.h_next)}
+                            </div>
+                        </div>`
+                },
+                {
+                    id: 'output',
+                    desc: '<p class="font-semibold text-indigo-700">Output</p><p>The newly blended hidden state <span class="font-mono">h_t</span> is both passed to the next time step AND used to compute the prediction <span class="font-mono">y_t</span>.</p>',
+                    eq: 'Output h_t, y_t',
+                    log: [`Final h_t = ${fmtArr(ex.gru.h_next)}`, `y_t = ${fmtArr(ex.gru.y_t)}`],
+                    activeNodes: ['gru-output-h', 'gru-output-y'],
+                    paths: [{from: 'gru-op-add', to: 'gru-output-h'}, {from: 'gru-op-add', to: 'gru-output-y'}],
+                    renderVector: () => `
+                        <div class="flex items-center gap-8">
+                            <div class="flex flex-col items-center">
+                                ${createLabel('Sent to Next Step')}
+                                <div class="mt-2">${createTensorBox('h(t)', ex.gru.h_next, colors.h_next)}</div>
+                            </div>
+                            <div class="h-16 w-px bg-slate-300"></div>
+                            <div class="flex flex-col items-center">
+                                ${createLabel('Output Prediction')}
+                                <div class="mt-2">${createTensorBox('y(t)', ex.gru.y_t, {bg:'bg-indigo-100', border:'border-indigo-300', text:'text-indigo-800'})}</div>
+                            </div>
+                        </div>`
+                }
+            ]
+        };
+
+        
+        function init() {
+            window.addEventListener('resize', () => {
+                if(state.isPlaying) togglePlay();
+                renderStep(state.currentStep);
+            });
+            switchModel('rnn');
+        }
+
+        function switchModel(modelType) {
+            pauseAnimation();
+            state.model = modelType;
+            state.currentStep = 0;
+            
+            // Clear log if element exists
+            if (els.mathLog) els.mathLog.innerHTML = '';
+            
+            // Set Example Context
+            if (els.exampleContext) {
+                els.exampleContext.innerHTML = ex[modelType].context || `<strong>Task:</strong> Sentiment Analysis.<br><strong>Sequence:</strong> "The movie was <em>amazing</em>"<br><strong>Current Step (t):</strong> Processing word: "amazing"`;
+            }
+
+            // Reset Buttons Classes
+            const activeBtnClass = "px-5 py-2 rounded-md text-sm font-medium transition-colors bg-white shadow text-blue-600 border border-slate-200";
+            const inactiveBtnClass = "px-5 py-2 rounded-md text-sm font-medium transition-colors text-slate-600 hover:text-slate-900";
+            
+            els.btnRnn.className = inactiveBtnClass;
+            els.btnLstm.className = inactiveBtnClass;
+            els.btnGru.className = inactiveBtnClass;
+
+            // UI Updates based on Model Type
+            if(modelType === 'rnn') {
+                els.rnnDiagram.classList.remove('hidden');
+                els.lstmDiagram.classList.add('hidden');
+                els.gruDiagram.classList.add('hidden');
+                els.btnRnn.className = activeBtnClass;
+                els.modelTitle.innerText = "Vanilla Recurrent Neural Network (RNN)";
+            } else if (modelType === 'lstm') {
+                els.rnnDiagram.classList.add('hidden');
+                els.lstmDiagram.classList.remove('hidden');
+                els.gruDiagram.classList.add('hidden');
+                els.btnLstm.className = activeBtnClass;
+                els.modelTitle.innerText = "Long Short-Term Memory (LSTM) Cell";
+            } else if (modelType === 'gru') {
+                els.rnnDiagram.classList.add('hidden');
+                els.lstmDiagram.classList.add('hidden');
+                els.gruDiagram.classList.remove('hidden');
+                els.btnGru.className = activeBtnClass;
+                els.modelTitle.innerText = "Gated Recurrent Unit (GRU) Cell";
+            }
+            
+            renderStep(0);
+        }
+
+        function renderStep(stepIndex) {
+            const seq = sequences[state.model];
+            if (stepIndex < 0 || stepIndex >= seq.length) return;
+            
+            state.currentStep = stepIndex;
+            const currentData = seq[stepIndex];
+            
+            // Update Text UI elements
+            if(els.stepDesc) els.stepDesc.innerHTML = currentData.desc;
+            if(els.equationDisp) els.equationDisp.innerText = currentData.eq;
+            if(els.stepDisplay) els.stepDisplay.innerText = `t (${stepIndex + 1}/${seq.length})`;
+            
+            // Update Progress bar
+            if(els.progressBar) {
+                const progress = ((stepIndex + 1) / seq.length) * 100;
+                els.progressBar.style.width = `${progress}%`;
+            }
+            
+            // Update Buttons
+            if(els.btnPrev) els.btnPrev.disabled = stepIndex === 0;
+            if(els.btnNext) els.btnNext.disabled = stepIndex === seq.length - 1;
+
+            // Log appending
+            if(els.mathLog) {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'border-l-2 border-blue-500 pl-2 py-1 bg-slate-700/30 rounded-r opacity-0 animate-[fadeIn_0.3s_forwards]';
+                logEntry.innerHTML = `<span class="text-blue-400 font-bold">[Step ${stepIndex + 1}]</span><br>` + currentData.log.join('<br>');
+                els.mathLog.appendChild(logEntry);
+                els.mathLog.scrollTop = els.mathLog.scrollHeight; // Auto-scroll
+            }
+
+            // Render Vector Math Panel
+            if(els.vectorViz && currentData.renderVector) {
+                els.vectorViz.innerHTML = currentData.renderVector();
+            }
+
+            // Visual State Updates
+            clearVisuals();
+            highlightNodes(currentData.activeNodes);
+            
+            setTimeout(() => {
+                drawPaths(currentData.paths);
+            }, 50);
+        }
+
+        function drawPaths(paths) {
+            if(!els.svgLayer) return;
+            els.svgLayer.innerHTML = ''; // Clear SVG
+            
+            const containerRect = document.getElementById('diagram-container').getBoundingClientRect();
+
+            paths.forEach(path => {
+                const elFrom = document.getElementById(path.from);
+                const elTo = document.getElementById(path.to);
+                
+                if(!elFrom || !elTo) return;
+
+                const rectFrom = elFrom.getBoundingClientRect();
+                const rectTo = elTo.getBoundingClientRect();
+
+                const x1 = rectFrom.left + (rectFrom.width / 2) - containerRect.left;
+                const y1 = rectFrom.top + (rectFrom.height / 2) - containerRect.top;
+                const x2 = rectTo.left + (rectTo.width / 2) - containerRect.left;
+                const y2 = rectTo.top + (rectTo.height / 2) - containerRect.top;
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', '#3b82f6'); 
+                line.setAttribute('stroke-width', '3');
+                line.setAttribute('stroke-linecap', 'round');
+                line.classList.add('data-flow-path');
+
+                els.svgLayer.appendChild(line);
+            });
+        }
+
+        function highlightNodes(nodeIds) {
+            nodeIds.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    el.classList.add('active-node', 'data-pulse');
+                    el.style.zIndex = "40"; 
+                }
+            });
+        }
+
+        function clearVisuals() {
+            document.querySelectorAll('.neural-node, .math-op').forEach(el => {
+                el.classList.remove('active-node', 'data-pulse');
+                
+                // Reset to default specific z-indexes based on class
+                if(el.classList.contains('math-op')) {
+                    el.style.zIndex = "20";
+                } else if(el.classList.contains('neural-node')) {
+                    el.style.zIndex = "20"; 
+                } else {
+                    el.style.zIndex = "";
+                }
+            });
+            if(els.svgLayer) els.svgLayer.innerHTML = '';
+        }
+
+        function togglePlay() {
+            if (state.isPlaying) pauseAnimation();
+            else startAnimation();
+        }
+
+        function startAnimation() {
+            if(state.currentStep >= sequences[state.model].length - 1) {
+                resetAnimation();
+                setTimeout(() => internalStart(), 100);
+            } else {
+                internalStart();
+            }
+        }
+        
+        function internalStart() {
+            state.isPlaying = true;
+            if(els.iconPlay) els.iconPlay.classList.add('hidden');
+            if(els.iconPause) els.iconPause.classList.remove('hidden');
+            if(els.btnPlay) {
+                els.btnPlay.classList.replace('bg-blue-600', 'bg-amber-500');
+                els.btnPlay.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600');
+            }
+            
+            const next = () => {
+                if(!state.isPlaying) return;
+                const seqLen = sequences[state.model].length;
+                
+                if (state.currentStep < seqLen - 1) {
+                    stepForward();
+                } else {
+                    pauseAnimation();
+                }
+            };
+            
+            next();
+            state.interval = setInterval(next, state.speed);
+        }
+
+        function pauseAnimation() {
+            state.isPlaying = false;
+            clearInterval(state.interval);
+            if(els.iconPause) els.iconPause.classList.add('hidden');
+            if(els.iconPlay) els.iconPlay.classList.remove('hidden');
+            if(els.btnPlay) {
+                els.btnPlay.classList.replace('bg-amber-500', 'bg-blue-600');
+                els.btnPlay.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700');
+            }
+        }
+
+        function stepForward() {
+            const seqLen = sequences[state.model].length;
+            if (state.currentStep < seqLen - 1) renderStep(state.currentStep + 1);
+        }
+
+        function stepBack() {
+            if (state.currentStep > 0) renderStep(state.currentStep - 1);
+        }
+
+        function resetAnimation() {
+            pauseAnimation();
+            if(els.mathLog) els.mathLog.innerHTML = '';
+            renderStep(0);
+        }
+
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes fadeIn {
+                to { opacity: 1; transform: translateX(0); }
+                from { opacity: 0; transform: translateX(-10px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        window.onload = init;
+
+    </script>
+</body>
+</html>

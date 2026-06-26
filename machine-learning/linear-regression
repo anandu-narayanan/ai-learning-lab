@@ -1,1 +1,684 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linear Regression Explorer V2</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+ --bg-dark:#0f1729;
+ --bg-light:#1a2847;
+ --glass:rgba(255,255,255,0.1);
+ --glass-hover:rgba(255,255,255,0.15);
+ --accent:#00d4ff;
+ --accent-alt:#ff6b6b;
+ --text:#fff;
+ --text-muted:#b0c4de;
+}
+
+*{
+ transition:all 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+
+body{
+ margin:0;
+ background:linear-gradient(135deg,var(--bg-dark) 0%,var(--bg-light) 100%);
+ color:var(--text);
+ font-family:'Segoe UI','Helvetica Neue',sans-serif;
+ height:100vh;
+ overflow:hidden;
+ backdrop-filter:blur(1px);
+}
+
+.header{
+ height:80px;
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ padding:0 30px;
+ background:rgba(15,23,41,0.4);
+ backdrop-filter:blur(20px);
+ border-bottom:1px solid rgba(255,255,255,0.08);
+ box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+
+.header h2{
+ font-size:28px;
+ margin:0;
+ background:linear-gradient(135deg,var(--accent),#00ffff);
+ -webkit-background-clip:text;
+ -webkit-text-fill-color:transparent;
+ background-clip:text;
+ font-weight:700;
+ letter-spacing:1px;
+}
+
+.main{
+ display:grid;
+ grid-template-columns:340px 1fr;
+ height:calc(100vh - 80px);
+ gap:16px;
+ padding:16px;
+ box-sizing:border-box;
+}
+
+.card{
+ background:var(--glass);
+ backdrop-filter:blur(25px);
+ border:1px solid rgba(255,255,255,0.15);
+ border-radius:24px;
+ padding:24px;
+ box-shadow:0 8px 32px rgba(0,0,0,0.2);
+}
+
+.card:hover{
+ background:var(--glass-hover);
+ border-color:rgba(255,255,255,0.25);
+ box-shadow:0 12px 48px rgba(0,212,255,0.1);
+}
+
+.sidebar{
+ overflow-y:auto;
+ scrollbar-width:thin;
+ scrollbar-color:rgba(255,255,255,0.2) transparent;
+}
+
+.sidebar::-webkit-scrollbar{
+ width:6px;
+}
+
+.sidebar::-webkit-scrollbar-track{
+ background:transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb{
+ background:rgba(255,255,255,0.2);
+ border-radius:3px;
+}
+
+.sidebar h3{
+ color:var(--accent);
+ margin:20px 0 12px 0;
+ font-size:14px;
+ font-weight:600;
+ text-transform:uppercase;
+ letter-spacing:1px;
+ opacity:0.9;
+}
+
+.sidebar h3:first-child{
+ margin-top:0;
+}
+
+.chartArea{
+ display:flex;
+ flex-direction:column;
+ height:100%;
+ gap:12px;
+}
+
+.metrics{
+ display:grid;
+ grid-template-columns:repeat(5,1fr);
+ gap:12px;
+ margin-bottom:0;
+}
+
+.metric{
+ background:var(--glass);
+ backdrop-filter:blur(25px);
+ border:1px solid rgba(255,255,255,0.15);
+ padding:16px 12px;
+ border-radius:20px;
+ text-align:center;
+ box-shadow:0 8px 32px rgba(0,0,0,0.2);
+ cursor:pointer;
+ position:relative;
+ overflow:hidden;
+}
+
+.metric::before{
+ content:'';
+ position:absolute;
+ top:0;
+ left:0;
+ width:100%;
+ height:2px;
+ background:linear-gradient(90deg,var(--accent),transparent);
+ opacity:0;
+}
+
+.metric:hover{
+ background:var(--glass-hover);
+ border-color:rgba(255,255,255,0.25);
+ transform:translateY(-4px);
+ box-shadow:0 12px 48px rgba(0,212,255,0.15);
+}
+
+.metric b{
+ display:block;
+ font-size:11px;
+ text-transform:uppercase;
+ color:var(--text-muted);
+ letter-spacing:0.5px;
+ margin-bottom:6px;
+}
+
+.metric span{
+ display:block;
+ font-size:18px;
+ font-weight:700;
+ color:var(--accent);
+}
+
+.chartWrap{
+ flex:1;
+ background:rgba(255,255,255,0.08);
+ backdrop-filter:blur(15px);
+ border:1px solid rgba(255,255,255,0.15);
+ border-radius:24px;
+ padding:16px;
+ box-shadow:0 8px 32px rgba(0,0,0,0.2);
+ position:relative;
+ overflow:hidden;
+}
+
+textarea{
+ width:100%;
+ background:rgba(255,255,255,0.06);
+ backdrop-filter:blur(10px);
+ border:1px solid rgba(255,255,255,0.12);
+ border-radius:14px;
+ padding:12px;
+ color:var(--text);
+ font-family:monospace;
+ font-size:13px;
+ resize:vertical;
+ box-sizing:border-box;
+}
+
+textarea:focus{
+ outline:none;
+ background:rgba(255,255,255,0.1);
+ border-color:var(--accent);
+ box-shadow:0 0 16px rgba(0,212,255,0.2);
+}
+
+input[type="range"]{
+ width:100%;
+ height:6px;
+ background:linear-gradient(to right,rgba(255,255,255,0.1),rgba(0,212,255,0.3));
+ border:none;
+ border-radius:3px;
+ outline:none;
+ -webkit-appearance:none;
+ appearance:none;
+}
+
+input[type="range"]::-webkit-slider-thumb{
+ -webkit-appearance:none;
+ appearance:none;
+ width:18px;
+ height:18px;
+ background:linear-gradient(135deg,var(--accent),#00ffff);
+ border-radius:50%;
+ cursor:pointer;
+ box-shadow:0 0 12px rgba(0,212,255,0.4);
+}
+
+input[type="range"]::-moz-range-thumb{
+ width:18px;
+ height:18px;
+ background:linear-gradient(135deg,var(--accent),#00ffff);
+ border:none;
+ border-radius:50%;
+ cursor:pointer;
+ box-shadow:0 0 12px rgba(0,212,255,0.4);
+}
+
+label{
+ display:block;
+ font-size:13px;
+ color:var(--text-muted);
+ text-transform:uppercase;
+ letter-spacing:0.5px;
+ margin:12px 0 8px 0;
+}
+
+label span{
+ color:var(--accent);
+ font-weight:600;
+ margin-left:6px;
+}
+
+button{
+ width:100%;
+ padding:12px 16px;
+ border:1px solid rgba(255,255,255,0.2);
+ background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(0,255,255,0.05));
+ color:var(--accent);
+ border-radius:12px;
+ margin-top:10px;
+ cursor:pointer;
+ font-weight:600;
+ font-size:13px;
+ text-transform:uppercase;
+ letter-spacing:0.5px;
+ position:relative;
+ overflow:hidden;
+ box-shadow:0 4px 15px rgba(0,212,255,0.1);
+}
+
+button::before{
+ content:'';
+ position:absolute;
+ top:0;
+ left:-100%;
+ width:100%;
+ height:100%;
+ background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);
+ transition:left 0.5s;
+}
+
+button:hover{
+ background:linear-gradient(135deg,rgba(0,212,255,0.25),rgba(0,255,255,0.15));
+ border-color:rgba(0,212,255,0.5);
+ transform:translateY(-2px);
+ box-shadow:0 8px 25px rgba(0,212,255,0.25);
+}
+
+button:hover::before{
+ left:100%;
+}
+
+button:active{
+ transform:translateY(0);
+ box-shadow:0 4px 15px rgba(0,212,255,0.15);
+}
+
+details{
+ margin-top:20px;
+ background:rgba(0,212,255,0.05);
+ border:1px solid rgba(0,212,255,0.2);
+ border-radius:12px;
+ padding:12px;
+ cursor:pointer;
+}
+
+details summary{
+ color:var(--accent);
+ font-weight:600;
+ font-size:13px;
+ text-transform:uppercase;
+ letter-spacing:0.5px;
+ user-select:none;
+}
+
+details[open] summary{
+ color:#00ffff;
+}
+
+details p{
+ margin:8px 0;
+ font-size:12px;
+ color:var(--text-muted);
+ line-height:1.5;
+}
+
+details ul{
+ margin:8px 0;
+ padding-left:20px;
+}
+
+details li{
+ font-size:12px;
+ color:var(--text-muted);
+ margin:4px 0;
+ line-height:1.5;
+}
+
+@media(max-width:900px){
+ body{overflow:auto;height:auto}
+ .main{grid-template-columns:1fr;height:auto}
+ .metrics{grid-template-columns:repeat(2,1fr)}
+ .chartArea{min-height:500px}
+}
+
+@keyframes metric-pulse{
+ 0%{transform:scale(0.95);opacity:0.7}
+ 50%{transform:scale(1.05)}
+ 100%{transform:scale(1);opacity:1}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h2>📈 Linear Regression Explorer</h2>
+<div style="font-size:13px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">Interactive Learning Tool</div>
+</div>
+
+<div class="main">
+
+<div class="card sidebar">
+
+<h3>📊 Dataset Input</h3>
+<textarea id="dataset" rows="6">1,2
+2,3
+3,5
+4,4
+5,6
+6,7</textarea>
+<button onclick="plotDataset()">📈 Plot Dataset</button>
+
+<h3>⚙️ Regression Line</h3>
+<label>Slope <span id="mVal">1</span></label>
+<input type="range" id="m" min="-200" max="200" step="0.1" value="1">
+
+<label>Intercept <span id="bVal">0</span></label>
+<input type="range" id="b" min="-200" max="200" step="0.1" value="0">
+
+<div style="display:flex;gap:8px;margin-top:12px;">
+<button style="flex:1;margin-top:0;" onclick="animateBestFit()">🎯 Best Fit</button>
+<button style="flex:1;margin-top:0;" onclick="resetLine()">↺ Reset</button>
+</div>
+
+<h3>📐 Residuals</h3>
+<button id="toggleAbs" onclick="toggleResiduals('abs')">🔴 Absolute</button>
+<button id="toggleSq" onclick="toggleResiduals('sq')">🟧 Squared</button>
+
+
+<details>
+<summary>📚 Learn</summary>
+<p>Linear Regression finds a line that best represents the relationship between X and Y.</p>
+<p><strong>y = mx + b</strong></p>
+<p>Slope controls steepness. Intercept controls starting point.</p>
+<p>MAE & MSE measure prediction errors.</p>
+</details>
+
+<details>
+<summary>🎯 Challenges</summary>
+<ul>
+<li>Get Fit Score above 90%</li>
+<li>Minimize the residuals</li>
+<li>Observe error patterns</li>
+</ul>
+</details>
+
+</div>
+
+<div class="chartArea">
+
+<div class="metrics">
+<div class="metric"><b>📐 Equation</b><br><span id="eq">y=1x+0</span></div>
+<div class="metric"><b>📏 MAE</b><br><span id="mae">0</span></div>
+<div class="metric"><b>⚖️ MSE</b><br><span id="mse">0</span></div>
+<div class="metric"><b>✨ Score</b><br><span id="score">0%</span></div>
+<div class="metric"><b>🎯 Quality</b><br><span id="quality">-</span></div>
+</div>
+
+<div class="chartWrap">
+<canvas id="chart"></canvas>
+</div>
+
+</div>
+
+</div>
+
+<script>
+let chart,points=[];
+let showAbsResiduals=false;
+let showSqResiduals=false;
+
+function parseData(){
+ return document.getElementById("dataset").value
+   .trim()
+   .split(/\r?\n/)
+   .map(r => r.trim())
+   .filter(r => r.length > 0)
+   .map(r => {
+     let [x,y] = r.split(",").map(v => Number(v.trim()));
+     return {x,y};
+   })
+   .filter(p => !Number.isNaN(p.x) && !Number.isNaN(p.y));
+}
+
+function predict(x,m,b){return m*x+b;}
+
+function mse(m,b){
+ let s=0;
+ points.forEach(p=>s+=(p.y-predict(p.x,m,b))**2);
+ return s/points.length;
+}
+
+function mae(m,b){
+ let s=0;
+ points.forEach(p=>s+=Math.abs(p.y-predict(p.x,m,b)));
+ return s/points.length;
+}
+
+function score(m,b){
+ return Math.max(0,100-mse(m,b)*10);
+}
+
+function quality(s){
+ if(s<40)return "Poor Fit";
+ if(s<70)return "Improving";
+ if(s<90)return "Good Fit";
+ return "Excellent Fit";
+}
+
+function color(s){
+ if(s<40)return "red";
+ if(s<70)return "orange";
+ return "green";
+}
+
+function update(){
+ if(points.length === 0){
+  chart.data.datasets[1].data = [];
+  chart.update();
+  return;
+ }
+ let m=+document.getElementById("m").value;
+ let b=+document.getElementById("b").value;
+
+ document.getElementById("mVal").innerText=m;
+ document.getElementById("bVal").innerText=b;
+
+ let sc=Math.round(score(m,b));
+
+ document.getElementById("eq").innerText=`y=${m.toFixed(2)}x+${b.toFixed(2)}`;
+ 
+ const maeVal=mae(m,b);
+ const mseVal=mse(m,b);
+ const maeEl=document.getElementById("mae");
+ const mseEl=document.getElementById("mse");
+ const scoreEl=document.getElementById("score");
+ const qualityEl=document.getElementById("quality");
+ 
+ maeEl.innerText=maeVal.toFixed(3);
+ mseEl.innerText=mseVal.toFixed(3);
+ scoreEl.innerText=sc+"%";
+ qualityEl.innerText=quality(sc);
+ 
+ [maeEl,mseEl,scoreEl,qualityEl].forEach(el=>{
+  el.parentElement.style.animation='none';
+  setTimeout(()=>el.parentElement.style.animation='metric-pulse 0.5s ease',10);
+ });
+
+ let min=Math.min(...points.map(p=>p.x));
+ let max=Math.max(...points.map(p=>p.x));
+
+ chart.data.datasets[1].borderColor=color(sc);
+ chart.data.datasets[1].data=[
+  {x:min,y:predict(min,m,b)},
+  {x:max,y:predict(max,m,b)}
+ ];
+ chart.update();
+}
+
+function updateResidualButtons(){
+ document.getElementById("toggleAbs").innerText = showAbsResiduals ? "Hide Absolute Residuals" : "Show Absolute Residuals";
+ document.getElementById("toggleSq").innerText = showSqResiduals ? "Hide Squared Residuals" : "Show Squared Residuals";
+}
+
+function toggleResiduals(type){
+ if(type==="abs") showAbsResiduals=!showAbsResiduals;
+ if(type==="sq") showSqResiduals=!showSqResiduals;
+ updateResidualButtons();
+ update();
+}
+
+function plotDataset(){
+ points=parseData();
+
+ if(points.length === 0){
+  alert("Please enter a valid dataset with rows formatted as x,y.");
+  return;
+ }
+
+ if(chart)chart.destroy();
+
+ const residualPlugin = {
+  id: 'residualPlugin',
+  afterDatasetsDraw(chart){
+    const m=+document.getElementById("m").value;
+    const b=+document.getElementById("b").value;
+    const ctx=chart.ctx;
+    const xScale=chart.scales.x;
+    const yScale=chart.scales.y;
+
+    if(!showAbsResiduals && !showSqResiduals) return;
+
+    points.forEach(point=>{
+      const xPixel=xScale.getPixelForValue(point.x);
+      const yActual=yScale.getPixelForValue(point.y);
+      const yPred=yScale.getPixelForValue(predict(point.x,m,b));
+      const distance=Math.abs(point.y-predict(point.x,m,b));
+      const midY=(yActual+yPred)/2;
+
+      if(showAbsResiduals){
+        ctx.save();
+        ctx.strokeStyle='red';
+        ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.moveTo(xPixel, yActual);
+        ctx.lineTo(xPixel, yPred);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if(showSqResiduals){
+        const size=Math.max(8, Math.abs(yActual - yPred));
+        ctx.save();
+        ctx.fillStyle='rgba(255,165,0,0.35)';
+        ctx.strokeStyle='orange';
+        ctx.lineWidth=2;
+        ctx.translate(xPixel, midY);
+        ctx.beginPath();
+        ctx.rect(-size/2, -size/2, size, size);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+ };
+
+ chart=new Chart(document.getElementById("chart"),{
+  type:"scatter",
+  data:{
+   datasets:[
+    {label:"Data",data:points, pointRadius:10,pointHoverRadius:16,backgroundColor:"white"},
+    {label:"Regression Line",type:"line",data:[],borderWidth:4,backgroundColor:"transparent",borderColor:"lime"}
+   ]
+  },
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    scales:{
+      x:{type:"linear",position:"bottom",title:{display:true,text:"X"}},
+      y:{type:"linear",position:"left",title:{display:true,text:"Y"}}
+    },
+    plugins:{
+      tooltip:{
+        callbacks:{
+          label(context){
+            const label=context.dataset.label || "";
+            return `${label}: (${context.parsed.x}, ${context.parsed.y.toFixed(2)})`;
+          }
+        }
+      }
+    }
+  },
+  plugins:[residualPlugin]
+ });
+
+ update();
+}
+
+function bestFit(){
+ if(points.length === 0) return {m:0,b:0};
+ let mx = points.reduce((a,p)=>a+p.x,0)/points.length;
+ let my = points.reduce((a,p)=>a+p.y,0)/points.length;
+ let num=0, den=0;
+ points.forEach(p=>{
+  num += (p.x-mx)*(p.y-my);
+  den += (p.x-mx)*(p.x-mx);
+ });
+ if(den === 0) return {m:0, b:my};
+ return {m:num/den, b:my-(num/den)*mx};
+}
+
+function animateBestFit(){
+ let startM=+document.getElementById("m").value;
+ let startB=+document.getElementById("b").value;
+ let target=bestFit();
+ let start;
+ const progressEl = document.getElementById("progress");
+ const statusEl = document.getElementById("status");
+
+ function step(t){
+  if(!start) start=t;
+  let p=Math.min((t-start)/4000,1);
+
+  document.getElementById("m").value = startM + (target.m - startM) * p;
+  document.getElementById("b").value = startB + (target.b - startB) * p;
+
+  update();
+
+  if(progressEl) progressEl.innerText = Math.round(p*100) + "%";
+  if(statusEl) statusEl.innerText = p < .3 ? "Searching..." : p < .9 ? "Improving..." : "Best Fit Found";
+
+  if(p<1) requestAnimationFrame(step);
+ }
+ requestAnimationFrame(step);
+}
+
+function resetLine(){
+ document.getElementById("m").value=1;
+ document.getElementById("b").value=0;
+ update();
+}
+
+function generateDataset(){
+ let rows=[];
+ for(let x=1;x<=10;x++){
+  rows.push(`${x},${(2*x+1+(Math.random()*2-1)).toFixed(2)}`);
+ }
+ document.getElementById("dataset").value=rows.join("\n");
+ plotDataset();
+}
+
+const mInput=document.getElementById("m");
+const bInput=document.getElementById("b");
+mInput.oninput=update;
+bInput.oninput=update;
+updateResidualButtons();
+plotDataset();
+</script>
+</body>
+</html>
